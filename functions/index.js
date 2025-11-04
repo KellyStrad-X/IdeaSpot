@@ -9,8 +9,15 @@ const db = admin.firestore();
 
 // Initialize OpenAI lazily to use Firebase config
 function getOpenAI() {
+  const config = functions.config();
+  const apiKey = config?.openai?.apikey || config?.openai?.api_key;
+
+  if (!apiKey) {
+    throw new Error('OpenAI API key is not configured in functions config.');
+  }
+
   return new OpenAI({
-    apiKey: functions.config().openai.api_key,
+    apiKey,
   });
 }
 
