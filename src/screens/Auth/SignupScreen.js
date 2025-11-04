@@ -89,6 +89,7 @@ export default function SignupScreen({ navigation }) {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
+                textContentType="emailAddress"
                 editable={!loading}
               />
             </View>
@@ -103,7 +104,9 @@ export default function SignupScreen({ navigation }) {
                 onChangeText={setPassword}
                 secureTextEntry
                 autoComplete="password-new"
+                textContentType="newPassword"
                 editable={!loading}
+                passwordRules="minlength: 6;"
               />
             </View>
 
@@ -117,6 +120,7 @@ export default function SignupScreen({ navigation }) {
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 autoComplete="password-new"
+                textContentType="newPassword"
                 editable={!loading}
               />
             </View>
@@ -198,6 +202,8 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     fontSize: Typography.base,
     color: Colors.textPrimary,
+    // Prevent iOS autofill styling issues
+    selectionColor: Colors.accent1,
   },
   button: {
     backgroundColor: Colors.accent1,

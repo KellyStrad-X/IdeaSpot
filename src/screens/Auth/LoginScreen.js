@@ -74,6 +74,7 @@ export default function LoginScreen({ navigation }) {
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
+              textContentType="emailAddress"
               editable={!loading}
             />
           </View>
@@ -88,6 +89,7 @@ export default function LoginScreen({ navigation }) {
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="password"
+              textContentType="password"
               editable={!loading}
             />
           </View>
@@ -165,6 +167,8 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     fontSize: Typography.base,
     color: Colors.textPrimary,
+    // Prevent iOS autofill styling issues
+    selectionColor: Colors.accent1,
   },
   button: {
     backgroundColor: Colors.accent1,
