@@ -5,12 +5,14 @@ const OpenAI = require('openai');
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 const db = admin.firestore();
+
+// Initialize OpenAI lazily to use Firebase config
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: functions.config().openai.api_key,
+  });
+}
 
 /**
  * Generate all 3 AI cards for an idea
@@ -90,6 +92,7 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
  * Generate Summary Card
  */
 async function generateSummaryCard(ideaText) {
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [
@@ -122,6 +125,7 @@ Return ONLY a JSON object with these fields: problem, audience, features (array)
  * Generate Next Steps Card
  */
 async function generateNextStepsCard(ideaText) {
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [
@@ -155,6 +159,7 @@ Return ONLY a JSON object with a "steps" array. Each step should have: title (st
  * Generate Similar Concepts Card
  */
 async function generateSimilarConceptsCard(ideaText) {
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [
@@ -193,6 +198,7 @@ Return ONLY a JSON object with: concepts (array with name, type, description, ga
  * Generate a concise title from the idea
  */
 async function generateTitle(ideaText) {
+  const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [
@@ -326,6 +332,7 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
     });
 
     // Get AI response
+    const openai = getOpenAI();
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages,
