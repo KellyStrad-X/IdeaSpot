@@ -6,68 +6,57 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { getIdea } from '../../services/firestore';
 
 export default function WorkspaceScreen({ navigation, route }) {
   const { ideaId } = route.params || {};
   const [idea, setIdea] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [expandedCard, setExpandedCard] = useState('summary');
 
-  // Placeholder data - will be replaced with Firestore data
+  // Fetch idea from Firestore
   useEffect(() => {
-    // Fetch idea from Firestore using ideaId
-    // For now, using placeholder data
-    setIdea({
-      id: ideaId,
-      title: 'Pet Grooming Marketplace',
-      tags: ['Business', 'Mobile', 'Marketplace'],
-      date: 'Nov 4, 2025',
-      cards: {
-        summary: {
-          problem: 'Pet owners struggle to find reliable, nearby groomers with available appointments.',
-          audience: 'Urban pet owners aged 25-45 with disposable income who value convenience.',
-          features: [
-            'Location-based groomer search',
-            'Real-time availability and booking',
-            'Rating and review system',
-            'In-app messaging and payments',
-          ],
-          valueProp: 'Book trusted pet grooming services in under 2 minutes.',
-          realityCheck: [
-            'Chicken-and-egg problem: Need groomers to attract customers.',
-            'Trust barrier: People are protective of their pets.',
-            'Low-frequency use: Most pet owners only groom 4-6 times per year.',
-          ],
-        },
-        nextSteps: {
-          steps: [
-            {
-              title: 'Interview 5 pet owners',
-              details: ['Ask about their last grooming experience', 'What was frustrating?'],
-              completed: false,
-            },
-            {
-              title: 'Call 3 local grooming businesses',
-              details: ['Would they use online booking?', 'What commission would they accept?'],
-              completed: false,
-            },
-          ],
-        },
-        similarConcepts: {
-          concepts: [
-            {
-              name: 'Rover',
-              type: 'App',
-              description: 'On-demand pet sitting and dog walking marketplace.',
-              gap: "Doesn't specialize in grooming",
-            },
-          ],
-          differentiation: "First mobile-first, grooming-specific marketplace with instant booking.",
-        },
-      },
-    });
+    if (!ideaId) {
+      Alert.alert('Error', 'No idea ID provided');
+      navigation.goBack();
+      return;
+    }
+
+    const loadIdea = async () => {
+      try {
+        const ideaData = await getIdea(ideaId);
+        if (ideaData) {
+          setIdea(ideaData);
+        } else {
+          Alert.alert('Error', 'Idea not found');
+          navigation.goBack();
+        }
+      } catch (error) {
+        console.error('Error loading idea:', error);
+        Alert.alert('Error', 'Failed to load idea');
+        navigation.goBack();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadIdea();
   }, [ideaId]);
+
+  // Format date for display
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   const toggleCard = (cardName) => {
     setExpandedCard(expandedCard === cardName ? null : cardName);
@@ -210,13 +199,37 @@ export default function WorkspaceScreen({ navigation, route }) {
     </View>
   );
 
-  if (!idea) {
+  // Render empty state when cards don't exist
+  const renderEmptyCards = () => (
+    <View style={styles.emptyCardsContainer}>
+      <Text style={styles.emptyCardsTitle}>No AI Analysis Yet</Text>
+      <Text style={styles.emptyCardsText}>
+        AI-powered card generation will be available once Cloud Functions are set up.
+      </Text>
+      <Text style={styles.emptyCardsText} style={{ marginTop: 16 }}>
+        Your idea: {idea.originalInput}
+      </Text>
+    </View>
+  );
+
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.accent1} />
         <Text style={styles.loadingText}>Loading idea...</Text>
       </View>
     );
   }
+
+  if (!idea) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Idea not found</Text>
+      </View>
+    );
+  }
+
+  const hasCards = idea.cards && (idea.cards.summary || idea.cards.nextSteps || idea.cards.similarConcepts);
 
   return (
     <View style={styles.container}>
@@ -228,20 +241,26 @@ export default function WorkspaceScreen({ navigation, route }) {
           <Text style={styles.ideaTitle}>{idea.title}</Text>
           <View style={styles.metadata}>
             <View style={styles.tags}>
-              {idea.tags.map((tag, index) => (
+              {idea.tags && idea.tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
             </View>
-            <Text style={styles.date}>{idea.date}</Text>
+            <Text style={styles.date}>{formatDate(idea.createdAt)}</Text>
           </View>
         </View>
 
-        {/* Cards */}
-        {renderSummaryCard()}
-        {renderNextStepsCard()}
-        {renderSimilarConceptsCard()}
+        {/* Cards or Empty State */}
+        {hasCards ? (
+          <>
+            {renderSummaryCard()}
+            {renderNextStepsCard()}
+            {renderSimilarConceptsCard()}
+          </>
+        ) : (
+          renderEmptyCards()
+        )}
 
         {/* Continue Chat Button */}
         <TouchableOpacity
@@ -264,10 +283,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.background,
   },
   loadingText: {
     color: Colors.textSecondary,
     fontSize: 16,
+    marginTop: 16,
+  },
+  emptyCardsContainer: {
+    margin: 16,
+    padding: 24,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  emptyCardsTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptyCardsText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   scrollView: {
     flex: 1,
