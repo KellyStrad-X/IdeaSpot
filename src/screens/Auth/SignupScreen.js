@@ -44,6 +44,10 @@ export default function SignupScreen({ navigation }) {
       await createUserWithEmailAndPassword(auth, email.trim(), password);
       // Navigation will be handled automatically by auth state listener
     } catch (error) {
+      console.error('Signup error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+
       let errorMessage = 'Failed to create account';
 
       if (error.code === 'auth/email-already-in-use') {
@@ -52,6 +56,13 @@ export default function SignupScreen({ navigation }) {
         errorMessage = 'Invalid email address';
       } else if (error.code === 'auth/weak-password') {
         errorMessage = 'Password is too weak. Use at least 6 characters';
+      } else if (error.code === 'auth/invalid-api-key') {
+        errorMessage = 'Firebase configuration error. Please check your API key.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else {
+        // Show the actual error code for debugging
+        errorMessage = `Failed to create account (${error.code})`;
       }
 
       Alert.alert('Signup Failed', errorMessage);

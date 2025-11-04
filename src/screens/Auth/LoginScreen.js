@@ -31,6 +31,10 @@ export default function LoginScreen({ navigation }) {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       // Navigation will be handled automatically by auth state listener
     } catch (error) {
+      console.error('Login error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+
       let errorMessage = 'Failed to sign in';
 
       if (error.code === 'auth/invalid-email') {
@@ -41,6 +45,13 @@ export default function LoginScreen({ navigation }) {
         errorMessage = 'Incorrect password';
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed attempts. Please try again later';
+      } else if (error.code === 'auth/invalid-api-key') {
+        errorMessage = 'Firebase configuration error. Please check your API key.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else {
+        // Show the actual error code for debugging
+        errorMessage = `Failed to sign in (${error.code})`;
       }
 
       Alert.alert('Login Failed', errorMessage);
