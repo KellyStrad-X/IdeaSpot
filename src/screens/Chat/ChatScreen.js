@@ -20,6 +20,7 @@ import {
   subscribeToChatHistory,
   getIdea,
 } from '../../services/firestore';
+import { generateIdeaCards } from '../../services/openai';
 
 export default function ChatScreen({ navigation, route }) {
   const { user } = useAuth();
@@ -116,18 +117,51 @@ export default function ChatScreen({ navigation, route }) {
     setSaving(true);
 
     try {
-      if (reply === 'Save to library') {
-        // Create the idea in Firestore
+      if (reply === 'Summarize & analyze') {
+        // Create the idea in Firestore first
         const title = generateIdeaTitle(firstUserMessage);
         const newIdeaId = await createIdea(user.uid, {
           title,
           originalInput: firstUserMessage,
-          tags: ['Uncategorized'], // Default tag, can be updated later
+          tags: ['Uncategorized'], // Will be updated by AI
           status: 'active',
         });
 
         // Save chat messages to the idea
         const chatMessages = messages.filter((msg) => msg.id !== '1'); // Exclude initial greeting
+        for (const msg of chatMessages) {
+          await addChatMessage(newIdeaId, msg.role, msg.content);
+        }
+
+        // Generate AI cards via Cloud Function
+        const result = await generateIdeaCards(newIdeaId, firstUserMessage);
+
+        Alert.alert(
+          'Success',
+          'Your idea has been analyzed and saved!',
+          [
+            {
+              text: 'View Analysis',
+              onPress: () => navigation.replace('Workspace', { ideaId: newIdeaId }),
+            },
+            {
+              text: 'Go to Dashboard',
+              onPress: () => navigation.navigate('Dashboard'),
+            },
+          ]
+        );
+      } else if (reply === 'Save to library') {
+        // Simple save without AI analysis
+        const title = generateIdeaTitle(firstUserMessage);
+        const newIdeaId = await createIdea(user.uid, {
+          title,
+          originalInput: firstUserMessage,
+          tags: ['Uncategorized'],
+          status: 'active',
+        });
+
+        // Save chat messages to the idea
+        const chatMessages = messages.filter((msg) => msg.id !== '1');
         for (const msg of chatMessages) {
           await addChatMessage(newIdeaId, msg.role, msg.content);
         }
@@ -147,16 +181,17 @@ export default function ChatScreen({ navigation, route }) {
           ]
         );
       } else {
-        // Other quick replies will trigger AI generation (via Cloud Functions in the future)
+        // Other quick replies (List next steps, Show similar concepts)
         Alert.alert(
           'Coming Soon',
-          'AI-powered analysis will be available once Cloud Functions are set up. For now, you can save your idea to the library.',
+          'This feature will generate specific cards. For now, use "Summarize & analyze" to generate all cards at once.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
-      console.error('Error saving idea:', error);
-      Alert.alert('Error', 'Failed to save idea. Please try again.');
+      console.error('Error processing idea:', error);
+      const errorMessage = error.message || 'Failed to process idea. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setSaving(false);
     }

@@ -10,13 +10,14 @@ import { functions } from '../config/firebase';
 
 /**
  * Generate all three cards for an idea
+ * @param {string} ideaId - The Firestore document ID of the idea
  * @param {string} ideaText - The user's raw idea input
- * @returns {Promise<Object>} - Object containing summary, nextSteps, and similarConcepts cards
+ * @returns {Promise<Object>} - Object containing title and cards (summary, nextSteps, similarConcepts)
  */
-export const generateIdeaCards = async (ideaText) => {
+export const generateIdeaCards = async (ideaId, ideaText) => {
   try {
     const generateCards = httpsCallable(functions, 'generateIdeaCards');
-    const result = await generateCards({ ideaText });
+    const result = await generateCards({ ideaId, ideaText });
     return result.data;
   } catch (error) {
     console.error('Error generating idea cards:', error);
@@ -26,6 +27,7 @@ export const generateIdeaCards = async (ideaText) => {
 
 /**
  * Regenerate a specific card with optional refinement prompt
+ * @param {string} ideaId - The Firestore document ID of the idea
  * @param {string} cardType - 'summary', 'nextSteps', or 'similarConcepts'
  * @param {string} ideaText - The original idea text
  * @param {string} refinementPrompt - Optional prompt to refine the regeneration
