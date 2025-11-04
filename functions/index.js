@@ -101,7 +101,7 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
 async function generateSummaryCard(ideaText) {
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
-    model: 'gpt-4',
+    model: 'gpt-4o',
     messages: [
       {
         role: 'system',
@@ -134,7 +134,7 @@ Return ONLY a JSON object with these fields: problem, audience, features (array)
 async function generateNextStepsCard(ideaText) {
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
-    model: 'gpt-4',
+    model: 'gpt-4o',
     messages: [
       {
         role: 'system',
@@ -168,7 +168,7 @@ Return ONLY a JSON object with a "steps" array. Each step should have: title (st
 async function generateSimilarConceptsCard(ideaText) {
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
-    model: 'gpt-4',
+    model: 'gpt-4o',
     messages: [
       {
         role: 'system',
@@ -207,7 +207,7 @@ Return ONLY a JSON object with: concepts (array with name, type, description, ga
 async function generateTitle(ideaText) {
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
-    model: 'gpt-4',
+    model: 'gpt-4o',
     messages: [
       {
         role: 'system',
@@ -341,7 +341,7 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
     // Get AI response
     const openai = getOpenAI();
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-4o',
       messages,
       temperature: 0.8,
       max_tokens: 500,
