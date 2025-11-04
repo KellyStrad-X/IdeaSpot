@@ -8,7 +8,15 @@ export const Typography = {
   xxl: 24,
   xxxl: 32,
 
-  // Font weights
+  // Font weights (as strings for React Native compatibility)
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+};
+
+// Font weights as constants for easier use
+export const FontWeight = {
   regular: '400',
   medium: '500',
   semibold: '600',

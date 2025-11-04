@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   filterChipText: {
     color: Colors.textSecondary,
     fontSize: Typography.sm,
-    fontWeight: Typography.medium,
+    fontWeight: '500',
   },
   filterChipTextActive: {
     color: Colors.textPrimary,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
     marginBottom: Spacing.sm,
   },
   cardPreview: {
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   tagText: {
     color: Colors.accent2,
     fontSize: Typography.xs,
-    fontWeight: Typography.medium,
+    fontWeight: '500',
   },
   cardDate: {
     color: Colors.textTertiary,
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.xl,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
     marginBottom: Spacing.sm,
   },
   emptyStateText: {
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   fabText: {
     color: Colors.textPrimary,
     fontSize: 32,
-    fontWeight: Typography.regular,
+    fontWeight: '400',
     marginTop: -2,
   },
 });

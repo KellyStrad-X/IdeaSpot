@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   ideaTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.xxl,
-    fontWeight: Typography.bold,
+    fontWeight: '700',
     marginBottom: Spacing.md,
   },
   metadata: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   tagText: {
     color: Colors.accent2,
     fontSize: Typography.xs,
-    fontWeight: Typography.medium,
+    fontWeight: '500',
   },
   date: {
     color: Colors.textTertiary,
@@ -325,12 +325,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
   },
   expandIcon: {
     color: Colors.textSecondary,
     fontSize: Typography.xl,
-    fontWeight: Typography.bold,
+    fontWeight: '700',
   },
   cardContent: {
     padding: Spacing.md,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: Colors.accent1,
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
     marginBottom: Spacing.xs,
   },
   sectionText: {
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   stepsHeader: {
     color: Colors.textPrimary,
     fontSize: Typography.base,
-    fontWeight: Typography.medium,
+    fontWeight: '500',
     marginBottom: Spacing.md,
   },
   stepItem: {
@@ -382,12 +382,12 @@ const styles = StyleSheet.create({
   checkboxText: {
     color: Colors.accent1,
     fontSize: Typography.sm,
-    fontWeight: Typography.bold,
+    fontWeight: '700',
   },
   stepTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.base,
-    fontWeight: Typography.medium,
+    fontWeight: '500',
     flex: 1,
   },
   stepDetail: {
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   conceptName: {
     color: Colors.textPrimary,
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
     marginBottom: Spacing.xs,
   },
   conceptDescription: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   differentiationTitle: {
     color: Colors.accent1,
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
     marginBottom: Spacing.xs,
   },
   differentiationText: {
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: Colors.accent1,
     fontSize: Typography.base,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
   },
   continueChatButton: {
     margin: Spacing.md,
@@ -461,6 +461,6 @@ const styles = StyleSheet.create({
   continueChatText: {
     color: Colors.textPrimary,
     fontSize: Typography.lg,
-    fontWeight: Typography.semibold,
+    fontWeight: '600',
   },
 });

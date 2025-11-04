@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   quickReplyText: {
     color: Colors.accent1,
     fontSize: Typography.sm,
-    fontWeight: Typography.medium,
+    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -236,6 +236,6 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: Colors.textPrimary,
     fontSize: Typography.xl,
-    fontWeight: Typography.bold,
+    fontWeight: '700',
   },
 });
