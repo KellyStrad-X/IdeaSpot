@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Colors } from '../constants/colors';
 
@@ -10,21 +10,23 @@ import WorkspaceScreen from '../screens/Workspace/WorkspaceScreen';
 
 const Stack = createStackNavigator();
 
+// Custom theme that merges DarkTheme to preserve fonts
+const navigationTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: Colors.accent1,
+    background: Colors.background,
+    card: Colors.surface,
+    text: Colors.textPrimary,
+    border: Colors.border,
+    notification: Colors.accent2,
+  },
+};
+
 export default function AppNavigator() {
   return (
-    <NavigationContainer
-      theme={{
-        dark: true,
-        colors: {
-          primary: Colors.accent1,
-          background: Colors.background,
-          card: Colors.surface,
-          text: Colors.textPrimary,
-          border: Colors.border,
-          notification: Colors.accent2,
-        },
-      }}
-    >
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         initialRouteName="Dashboard"
         screenOptions={{
