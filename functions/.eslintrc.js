@@ -7,16 +7,16 @@ module.exports = {
     ecmaVersion: 2018,
   },
   extends: [
-    "eslint:recommended",
+    'eslint:recommended',
   ],
   rules: {
-    "no-restricted-globals": ["error", "name", "length"],
-    "prefer-arrow-callback": "error",
-    "quotes": ["error", "single", { "allowTemplateLiterals": true }],
+    'no-restricted-globals': ['error', 'name', 'length'],
+    'prefer-arrow-callback': 'error',
+    'quotes': ['error', 'single', { 'allowTemplateLiterals': true }],
   },
   overrides: [
     {
-      files: ["**/*.spec.*"],
+      files: ['**/*.spec.*'],
       env: {
         mocha: true,
       },
