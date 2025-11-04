@@ -11,7 +11,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { Typography, Spacing, BorderRadius } from '../../constants/theme';
 
 export default function ChatScreen({ navigation, route }) {
   const [messages, setMessages] = useState([
@@ -154,10 +153,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   messagesList: {
-    padding: Spacing.md,
+    padding: 16,
   },
   messageContainer: {
-    marginBottom: Spacing.md,
+    marginBottom: 16,
   },
   userMessageContainer: {
     alignItems: 'flex-end',
@@ -167,8 +166,8 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '80%',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    padding: 16,
+    borderRadius: 16,
   },
   userBubble: {
     backgroundColor: Colors.userMessage,
@@ -177,7 +176,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.aiMessage,
   },
   messageText: {
-    fontSize: Typography.base,
+    fontSize: 16,
     lineHeight: 22,
   },
   userText: {
@@ -189,28 +188,28 @@ const styles = StyleSheet.create({
   quickRepliesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   quickReplyChip: {
     backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    marginRight: Spacing.sm,
-    marginBottom: Spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    marginRight: 8,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: Colors.accent1,
   },
   quickReplyText: {
     color: Colors.accent1,
-    fontSize: Typography.sm,
+    fontSize: 14,
     fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: Spacing.md,
+    padding: 16,
     backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
@@ -218,12 +217,12 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    borderRadius: 12,
+    padding: 16,
     color: Colors.textPrimary,
-    fontSize: Typography.base,
+    fontSize: 16,
     maxHeight: 100,
-    marginRight: Spacing.sm,
+    marginRight: 8,
   },
   sendButton: {
     width: 44,
@@ -235,7 +234,7 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     color: Colors.textPrimary,
-    fontSize: Typography.xl,
+    fontSize: 20,
     fontWeight: '700',
   },
 });

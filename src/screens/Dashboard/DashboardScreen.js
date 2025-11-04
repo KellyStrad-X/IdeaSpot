@@ -9,7 +9,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { Typography, Spacing, BorderRadius } from '../../constants/theme';
 
 export default function DashboardScreen({ navigation }) {
   const [ideas, setIdeas] = useState([]);
@@ -119,62 +118,62 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   searchContainer: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   searchInput: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+    borderRadius: 12,
+    padding: 16,
     color: Colors.textPrimary,
-    fontSize: Typography.base,
+    fontSize: 16,
   },
   filterContainer: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   filterChip: {
     backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    marginRight: Spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    marginRight: 8,
   },
   filterChipActive: {
     backgroundColor: Colors.accent1,
   },
   filterChipText: {
     color: Colors.textSecondary,
-    fontSize: Typography.sm,
+    fontSize: 14,
     fontWeight: '500',
   },
   filterChipTextActive: {
     color: Colors.textPrimary,
   },
   listContainer: {
-    padding: Spacing.md,
+    padding: 16,
   },
   ideaCard: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.md,
+    borderRadius: 16,
+    marginBottom: 16,
     overflow: 'hidden',
   },
   cardContent: {
-    padding: Spacing.md,
+    padding: 16,
   },
   cardTitle: {
     color: Colors.textPrimary,
-    fontSize: Typography.lg,
+    fontSize: 18,
     fontWeight: '600',
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   cardPreview: {
     color: Colors.textSecondary,
-    fontSize: Typography.sm,
+    fontSize: 14,
     lineHeight: 20,
-    marginBottom: Spacing.md,
+    marginBottom: 16,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -187,41 +186,41 @@ const styles = StyleSheet.create({
   },
   tag: {
     backgroundColor: Colors.surfaceLight,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    marginRight: Spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 4,
   },
   tagText: {
     color: Colors.accent2,
-    fontSize: Typography.xs,
+    fontSize: 12,
     fontWeight: '500',
   },
   cardDate: {
     color: Colors.textTertiary,
-    fontSize: Typography.xs,
+    fontSize: 12,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: Spacing.xxl * 2,
+    paddingTop: 48 * 2,
   },
   emptyStateTitle: {
     color: Colors.textPrimary,
-    fontSize: Typography.xl,
+    fontSize: 20,
     fontWeight: '600',
-    marginBottom: Spacing.sm,
+    marginBottom: 8,
   },
   emptyStateText: {
     color: Colors.textSecondary,
-    fontSize: Typography.base,
+    fontSize: 16,
     textAlign: 'center',
   },
   fab: {
     position: 'absolute',
-    bottom: Spacing.xl,
-    right: Spacing.xl,
+    bottom: 32,
+    right: 32,
     width: 64,
     height: 64,
     borderRadius: 32,
