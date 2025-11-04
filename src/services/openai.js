@@ -33,7 +33,7 @@ export const generateIdeaCards = async (ideaId, ideaText) => {
  * @param {string} refinementPrompt - Optional prompt to refine the regeneration
  * @returns {Promise<Object>} - The regenerated card data
  */
-export const regenerateCard = async (cardType, ideaText, refinementPrompt = '') {
+export const regenerateCard = async (cardType, ideaText, refinementPrompt = '') => {
   try {
     const regenerate = httpsCallable(functions, 'regenerateCard');
     const result = await regenerate({ cardType, ideaText, refinementPrompt });
