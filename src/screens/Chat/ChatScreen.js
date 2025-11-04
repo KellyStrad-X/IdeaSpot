@@ -9,10 +9,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  createIdea,
+  addChatMessage,
+  subscribeToChatHistory,
+  getIdea,
+} from '../../services/firestore';
 
 export default function ChatScreen({ navigation, route }) {
+  const { user } = useAuth();
+  const { ideaId } = route.params || {};
+
   const [messages, setMessages] = useState([
     {
       id: '1',
@@ -22,29 +34,65 @@ export default function ChatScreen({ navigation, route }) {
   ]);
   const [inputText, setInputText] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [currentIdeaId, setCurrentIdeaId] = useState(ideaId);
+  const [firstUserMessage, setFirstUserMessage] = useState('');
+  const [saving, setSaving] = useState(false);
   const flatListRef = useRef(null);
 
   const quickReplies = [
     'Summarize & analyze',
     'List next steps',
     'Show similar concepts',
-    'Add to library',
+    'Save to library',
   ];
 
-  const handleSend = () => {
+  // Load existing chat history if continuing an idea
+  useEffect(() => {
+    if (currentIdeaId) {
+      const unsubscribe = subscribeToChatHistory(currentIdeaId, (chatMessages) => {
+        // Keep the initial greeting and add chat history
+        const historyMessages = chatMessages.map((msg, index) => ({
+          id: `history-${index}`,
+          role: msg.role,
+          content: msg.content,
+        }));
+        setMessages([messages[0], ...historyMessages]);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [currentIdeaId]);
+
+  const handleSend = async () => {
     if (inputText.trim() === '') return;
 
-    // Add user message
+    const userMessageContent = inputText.trim();
+
+    // Add user message to UI immediately
     const userMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputText,
+      content: userMessageContent,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
 
-    // Simulate AI response (will be replaced with actual OpenAI integration)
+    // Store first user message for creating idea title
+    if (!firstUserMessage) {
+      setFirstUserMessage(userMessageContent);
+    }
+
+    // Save message to Firestore if we have an ideaId
+    if (currentIdeaId) {
+      try {
+        await addChatMessage(currentIdeaId, 'user', userMessageContent);
+      } catch (error) {
+        console.error('Error saving message:', error);
+      }
+    }
+
+    // Simulate AI response (will be replaced with actual OpenAI integration via Cloud Functions)
     setTimeout(() => {
       const aiMessage = {
         id: (Date.now() + 1).toString(),
@@ -57,11 +105,61 @@ export default function ChatScreen({ navigation, route }) {
     }, 1000);
   };
 
-  const handleQuickReply = (reply) => {
+  const generateIdeaTitle = (text) => {
+    // Generate a title from the first message (max 50 chars)
+    const words = text.split(' ').slice(0, 8).join(' ');
+    return words.length > 50 ? words.substring(0, 47) + '...' : words;
+  };
+
+  const handleQuickReply = async (reply) => {
     setShowQuickReplies(false);
-    // Handle quick reply action
-    // This will trigger card generation in the actual implementation
-    console.log('Quick reply:', reply);
+    setSaving(true);
+
+    try {
+      if (reply === 'Save to library') {
+        // Create the idea in Firestore
+        const title = generateIdeaTitle(firstUserMessage);
+        const newIdeaId = await createIdea(user.uid, {
+          title,
+          originalInput: firstUserMessage,
+          tags: ['Uncategorized'], // Default tag, can be updated later
+          status: 'active',
+        });
+
+        // Save chat messages to the idea
+        const chatMessages = messages.filter((msg) => msg.id !== '1'); // Exclude initial greeting
+        for (const msg of chatMessages) {
+          await addChatMessage(newIdeaId, msg.role, msg.content);
+        }
+
+        Alert.alert(
+          'Success',
+          'Your idea has been saved to the library!',
+          [
+            {
+              text: 'View Idea',
+              onPress: () => navigation.replace('Workspace', { ideaId: newIdeaId }),
+            },
+            {
+              text: 'Go to Dashboard',
+              onPress: () => navigation.navigate('Dashboard'),
+            },
+          ]
+        );
+      } else {
+        // Other quick replies will trigger AI generation (via Cloud Functions in the future)
+        Alert.alert(
+          'Coming Soon',
+          'AI-powered analysis will be available once Cloud Functions are set up. For now, you can save your idea to the library.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error saving idea:', error);
+      Alert.alert('Error', 'Failed to save idea. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderMessage = ({ item }) => {
@@ -116,15 +214,22 @@ export default function ChatScreen({ navigation, route }) {
       {/* Quick Replies */}
       {showQuickReplies && (
         <View style={styles.quickRepliesContainer}>
-          {quickReplies.map((reply, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.quickReplyChip}
-              onPress={() => handleQuickReply(reply)}
-            >
-              <Text style={styles.quickReplyText}>{reply}</Text>
-            </TouchableOpacity>
-          ))}
+          {saving ? (
+            <View style={styles.savingContainer}>
+              <ActivityIndicator size="small" color={Colors.accent1} />
+              <Text style={styles.savingText}>Saving...</Text>
+            </View>
+          ) : (
+            quickReplies.map((reply, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.quickReplyChip}
+                onPress={() => handleQuickReply(reply)}
+              >
+                <Text style={styles.quickReplyText}>{reply}</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       )}
 
@@ -205,6 +310,16 @@ const styles = StyleSheet.create({
     color: Colors.accent1,
     fontSize: 14,
     fontWeight: '500',
+  },
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  savingText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    marginLeft: 8,
   },
   inputContainer: {
     flexDirection: 'row',
