@@ -7,40 +7,100 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { useAuth } from '../../contexts/AuthContext';
+import { subscribeToUserIdeas } from '../../services/firestore';
 
 export default function DashboardScreen({ navigation }) {
+  const { user } = useAuth();
   const [ideas, setIdeas] = useState([]);
+  const [filteredIdeas, setFilteredIdeas] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
+  const [loading, setLoading] = useState(true);
 
-  // Placeholder data - will be replaced with Firestore data
   const filters = ['All', 'In Progress', 'Business', 'Tech', 'Social'];
 
-  const renderIdeaCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.ideaCard}
-      onPress={() => navigation.navigate('Workspace', { ideaId: item.id })}
-    >
-      <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardPreview} numberOfLines={2}>
-          {item.preview}
-        </Text>
-        <View style={styles.cardFooter}>
-          <View style={styles.tags}>
-            {item.tags.map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
+  // Subscribe to user's ideas from Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToUserIdeas(user.uid, (userIdeas) => {
+      setIdeas(userIdeas);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Filter and search ideas
+  useEffect(() => {
+    let result = ideas;
+
+    // Filter by tag
+    if (selectedFilter !== 'All') {
+      result = result.filter(idea =>
+        idea.tags && idea.tags.includes(selectedFilter)
+      );
+    }
+
+    // Search by title or content
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(idea =>
+        idea.title.toLowerCase().includes(query) ||
+        (idea.originalInput && idea.originalInput.toLowerCase().includes(query))
+      );
+    }
+
+    setFilteredIdeas(result);
+  }, [ideas, selectedFilter, searchQuery]);
+
+  // Format date for display
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+    return date.toLocaleDateString();
+  };
+
+  const renderIdeaCard = ({ item }) => {
+    // Get preview text from summary card or original input
+    const preview = item.cards?.summary?.problem || item.originalInput || 'No description yet';
+
+    return (
+      <TouchableOpacity
+        style={styles.ideaCard}
+        onPress={() => navigation.navigate('Workspace', { ideaId: item.id })}
+      >
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardPreview} numberOfLines={2}>
+            {preview}
+          </Text>
+          <View style={styles.cardFooter}>
+            <View style={styles.tags}>
+              {item.tags && item.tags.slice(0, 3).map((tag, index) => (
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
           </View>
-          <Text style={styles.cardDate}>{item.date}</Text>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -86,20 +146,32 @@ export default function DashboardScreen({ navigation }) {
       </View>
 
       {/* Ideas List */}
-      <FlatList
-        data={ideas}
-        renderItem={renderIdeaCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>No ideas yet</Text>
-            <Text style={styles.emptyStateText}>
-              Tap the + button to capture your first idea
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.accent1} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredIdeas}
+          renderItem={renderIdeaCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>
+                {searchQuery || selectedFilter !== 'All'
+                  ? 'No ideas found'
+                  : 'No ideas yet'}
+              </Text>
+              <Text style={styles.emptyStateText}>
+                {searchQuery || selectedFilter !== 'All'
+                  ? 'Try adjusting your search or filters'
+                  : 'Tap the + button to capture your first idea'}
+              </Text>
+            </View>
+          }
+        />
+      )}
 
       {/* Floating Action Button */}
       <TouchableOpacity
@@ -116,6 +188,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     paddingHorizontal: 16,
