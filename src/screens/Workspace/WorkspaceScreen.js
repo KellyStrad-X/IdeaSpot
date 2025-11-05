@@ -17,7 +17,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const { ideaId } = route.params || {};
   const [idea, setIdea] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [expandedCard, setExpandedCard] = useState('summary');
+  const [expandedCard, setExpandedCard] = useState(null);
   const [businessName, setBusinessName] = useState('');
   const [slogan, setSlogan] = useState('');
 
