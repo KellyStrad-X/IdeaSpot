@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text, Alert, Image } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -54,21 +54,6 @@ function AuthStack() {
   );
 }
 
-// Custom header for Dashboard with logo
-function DashboardHeader() {
-  return (
-    <View style={styles.dashboardHeader}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('../../public/logos/IdeaSpot Logo Main.png')}
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
-      </View>
-      <Text style={styles.dashboardTitle}>Ideas Dashboard</Text>
-    </View>
-  );
-}
 
 // Sign out button component
 function SignOutButton() {
@@ -137,7 +122,7 @@ function MainStack() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          headerTitle: () => <DashboardHeader />,
+          title: 'Dashboard',
           headerShown: true,
           headerRight: () => <SignOutButton />,
         }}
@@ -184,26 +169,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
-  },
-  dashboardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  logoContainer: {
-    width: 50,
-    height: 50,
-    marginRight: 8,
-    marginLeft: -8,
-  },
-  headerLogo: {
-    width: '100%',
-    height: '100%',
-  },
-  dashboardTitle: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
   },
 });
