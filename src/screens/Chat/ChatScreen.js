@@ -11,6 +11,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
@@ -234,6 +235,13 @@ export default function ChatScreen({ navigation, route }) {
     >
       <StatusBar barStyle="light-content" />
 
+      {/* Background Logo */}
+      <Image
+        source={require('../../../assets/logo.png')}
+        style={styles.backgroundLogo}
+        resizeMode="contain"
+      />
+
       {/* Messages List */}
       <FlatList
         ref={flatListRef}
@@ -386,5 +394,15 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 20,
     fontWeight: '700',
+  },
+  backgroundLogo: {
+    position: 'absolute',
+    width: 300,
+    height: 120,
+    opacity: 0.22,
+    top: '35%',
+    left: '50%',
+    marginLeft: -150,
+    zIndex: 0,
   },
 });

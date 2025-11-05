@@ -9,6 +9,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -248,6 +249,17 @@ export default function DashboardScreen({ navigation }) {
               </Text>
             </View>
           }
+          ListFooterComponent={
+            filteredIdeas.length > 0 ? (
+              <View style={styles.logoFooter}>
+                <Image
+                  source={require('../../../assets/logo.png')}
+                  style={styles.footerLogo}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : null
+          }
         />
       )}
 
@@ -413,5 +425,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+  },
+  logoFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    paddingBottom: 100,
+  },
+  footerLogo: {
+    width: 150,
+    height: 60,
+    opacity: 0.6,
   },
 });
