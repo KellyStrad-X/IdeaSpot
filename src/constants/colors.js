@@ -1,42 +1,42 @@
 export const Colors = {
-  // Base colors - dark theme (Notion-style)
-  background: '#1a1a1a',
-  surface: '#252525',
-  surfaceLight: '#2d2d2d',
+  // Base colors - soft gray theme (IdeaSpot brand)
+  background: '#484847',      // Brand gray background
+  surface: '#5a5a59',         // Lighter gray for cards
+  surfaceLight: '#6e6e6d',    // Elevated surfaces
 
   // Text colors
-  textPrimary: '#ffffff',
-  textSecondary: '#a0a0a0',
-  textTertiary: '#707070',
+  textPrimary: '#ffffff',     // White - maximum readability
+  textSecondary: '#d0d0d0',   // Light gray
+  textTertiary: '#a0a0a0',    // Medium gray
 
-  // Accent colors for idea cards
-  accent1: '#6366f1', // Indigo
-  accent2: '#8b5cf6', // Purple
-  accent3: '#ec4899', // Pink
-  accent4: '#f59e0b', // Amber
-  accent5: '#10b981', // Emerald
-  accent6: '#06b6d4', // Cyan
+  // Accent colors - warm palette (orange-centered)
+  accent1: '#CA7A11',         // Brand orange - PRIMARY
+  accent2: '#e6a532',         // Light amber - complementary
+  accent3: '#d65d0e',         // Deep orange
+  accent4: '#f0ad4e',         // Golden yellow
+  accent5: '#52b788',         // Warm green
+  accent6: '#4a90a4',         // Teal-blue for contrast
 
   // Chat colors
-  userMessage: '#3b82f6', // Blue for user messages
-  aiMessage: '#404040', // Gray for AI messages
+  userMessage: '#CA7A11',     // Brand orange for user messages
+  aiMessage: '#3a3a39',       // Darker gray for AI messages
 
   // UI elements
-  border: '#3d3d3d',
-  divider: '#2d2d2d',
+  border: '#606060',          // Medium gray borders
+  divider: '#5a5a59',         // Subtle dividers
 
   // Status colors
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
-  info: '#3b82f6',
+  success: '#52b788',         // Warm green
+  warning: '#f0ad4e',         // Golden yellow
+  error: '#e63946',           // Warm red
+  info: '#4a90a4',            // Teal-blue
 
   // Gradient backgrounds for cards
   gradients: {
-    purple: ['#6366f1', '#8b5cf6'],
-    pink: ['#ec4899', '#f472b6'],
-    blue: ['#3b82f6', '#06b6d4'],
-    green: ['#10b981', '#34d399'],
-    amber: ['#f59e0b', '#fbbf24'],
+    orange: ['#CA7A11', '#e6a532'],
+    amber: ['#e6a532', '#f0ad4e'],
+    teal: ['#2a9d8f', '#52b788'],
+    blue: ['#4a90a4', '#5b9aa0'],
+    warm: ['#d65d0e', '#CA7A11'],
   }
 };
