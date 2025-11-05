@@ -58,11 +58,13 @@ function AuthStack() {
 function DashboardHeader() {
   return (
     <View style={styles.dashboardHeader}>
-      <Image
-        source={require('../../public/logos/IdeaSpot Logo Main.png')}
-        style={styles.headerLogo}
-        resizeMode="contain"
-      />
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../public/logos/IdeaSpot Logo Main.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+      </View>
       <Text style={styles.dashboardTitle}>Ideas Dashboard</Text>
     </View>
   );
@@ -186,15 +188,22 @@ const styles = StyleSheet.create({
   dashboardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  logoContainer: {
+    width: 50,
+    height: 50,
+    marginRight: 8,
+    marginLeft: -8,
   },
   headerLogo: {
-    width: 80,
-    height: 40,
-    marginRight: 12,
+    width: '100%',
+    height: '100%',
   },
   dashboardTitle: {
     color: Colors.textPrimary,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
+    flex: 1,
   },
 });
