@@ -28,18 +28,35 @@ export const generateIdeaCards = async (ideaId, ideaText) => {
 /**
  * Regenerate a specific card with optional refinement prompt
  * @param {string} ideaId - The Firestore document ID of the idea
- * @param {string} cardType - 'summary', 'nextSteps', or 'similarConcepts'
+ * @param {string} cardType - 'summary', 'actionableInsights', 'userScenarios', 'monetization', or 'conceptBranding'
  * @param {string} ideaText - The original idea text
  * @param {string} refinementPrompt - Optional prompt to refine the regeneration
  * @returns {Promise<Object>} - The regenerated card data
  */
-export const regenerateCard = async (cardType, ideaText, refinementPrompt = '') => {
+export const regenerateCard = async (ideaId, cardType, ideaText, refinementPrompt = '') => {
   try {
     const regenerate = httpsCallable(functions, 'regenerateCard');
-    const result = await regenerate({ cardType, ideaText, refinementPrompt });
+    const result = await regenerate({ ideaId, cardType, ideaText, refinementPrompt });
     return result.data;
   } catch (error) {
     console.error('Error regenerating card:', error);
+    throw error;
+  }
+};
+
+/**
+ * Regenerate just the business name in Concept Branding
+ * @param {string} ideaId - The Firestore document ID of the idea
+ * @param {string} ideaText - The original idea text
+ * @returns {Promise<Object>} - Object containing new name and rationale
+ */
+export const regenerateBusinessName = async (ideaId, ideaText) => {
+  try {
+    const regenerate = httpsCallable(functions, 'regenerateBusinessName');
+    const result = await regenerate({ ideaId, ideaText });
+    return result.data;
+  } catch (error) {
+    console.error('Error regenerating business name:', error);
     throw error;
   }
 };

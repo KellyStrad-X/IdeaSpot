@@ -59,23 +59,32 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
       );
     }
 
-    // Generate all three cards in parallel for speed
-    const [summaryCard, nextStepsCard, similarConceptsCard] = await Promise.all([
+    // Generate all cards in parallel for speed
+    const [
+      summaryCard,
+      actionableInsightsCard,
+      userScenariosCard,
+      monetizationCard,
+      conceptBranding,
+      title,
+    ] = await Promise.all([
       generateSummaryCard(ideaText),
-      generateNextStepsCard(ideaText),
-      generateSimilarConceptsCard(ideaText),
+      generateActionableInsightsCard(ideaText),
+      generateUserScenariosCard(ideaText),
+      generateMonetizationCard(ideaText),
+      generateConceptBranding(ideaText),
+      generateTitle(ideaText),
     ]);
 
-    // Generate a better title using AI
-    const title = await generateTitle(ideaText);
-
-    // Update the idea document with the cards and title
+    // Update the idea document with all cards and title
     await ideaRef.update({
       title,
       cards: {
         summary: summaryCard,
-        nextSteps: nextStepsCard,
-        similarConcepts: similarConceptsCard,
+        actionableInsights: actionableInsightsCard,
+        userScenarios: userScenariosCard,
+        monetization: monetizationCard,
+        conceptBranding: conceptBranding,
       },
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
@@ -85,8 +94,10 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
       title,
       cards: {
         summary: summaryCard,
-        nextSteps: nextStepsCard,
-        similarConcepts: similarConceptsCard,
+        actionableInsights: actionableInsightsCard,
+        userScenarios: userScenariosCard,
+        monetization: monetizationCard,
+        conceptBranding: conceptBranding,
       },
     };
   } catch (error) {
@@ -129,26 +140,30 @@ Return ONLY a JSON object with these fields: problem, audience, features (array)
 }
 
 /**
- * Generate Next Steps Card
+ * Generate Actionable Insights Card
  */
-async function generateNextStepsCard(ideaText) {
+async function generateActionableInsightsCard(ideaText) {
   const openai = getOpenAI();
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
       {
         role: 'system',
-        content: `You are a startup validation coach. Given an idea, generate 5-7 concrete actions the person can take in the next 48 hours to validate demand.
+        content: `You are a business strategy advisor. Generate 5-7 actionable insights to develop this idea into a viable business.
 
 Focus on:
-- Customer interviews
-- Competitor research
-- Quick experiments (landing pages, surveys)
-- Unit economics calculations
+- Market validation strategies
+- Business model considerations
+- Key strategic decisions to make
+- Risk mitigation approaches
+- Growth and scaling insights
 
-Be specific. Don't suggest "build an MVP" — that comes later.
+Provide GENERAL, STRATEGIC advice (not just 48-hour tasks). Be consistent in tone and concise in delivery. Each insight should be practical and immediately useful.
 
-Return ONLY a JSON object with a "steps" array. Each step should have: title (string), details (array of strings), completed (false).`,
+Return ONLY a JSON object with an "insights" array. Each insight should have:
+- title (string): Clear, concise heading
+- advice (string): 2-3 sentences of actionable guidance
+- category (string): One of "validation", "business-model", "strategy", "risk", "growth"`,
       },
       {
         role: 'user',
@@ -226,6 +241,154 @@ async function generateTitle(ideaText) {
 }
 
 /**
+ * Generate User Scenarios Card
+ */
+async function generateUserScenariosCard(ideaText) {
+  const openai = getOpenAI();
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `You are a UX researcher and user journey expert. Generate 3-4 realistic user scenarios that demonstrate how different people would use this idea to solve their problems.
+
+For each scenario:
+- Create a specific persona (name, role, context)
+- Describe their problem/need
+- Show step-by-step how they would use this idea
+- Highlight the outcome/benefit they receive
+
+Make scenarios DIVERSE (different user types, contexts, use cases). Be concrete and story-driven. Keep each scenario to 4-6 sentences.
+
+Return ONLY a JSON object with a "scenarios" array. Each scenario should have:
+- persona (string): Name and brief descriptor (e.g., "Sarah, a freelance designer")
+- context (string): Their situation/problem
+- journey (string): How they use the product/service (3-4 sentences)
+- outcome (string): The benefit/result they achieve`,
+      },
+      {
+        role: 'user',
+        content: ideaText,
+      },
+    ],
+    temperature: 0.7,
+    response_format: { type: 'json_object' },
+  });
+
+  return JSON.parse(response.choices[0].message.content);
+}
+
+/**
+ * Generate Monetization Card
+ */
+async function generateMonetizationCard(ideaText) {
+  const openai = getOpenAI();
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `You are a pricing strategist and business model expert. Analyze this idea and suggest viable monetization approaches.
+
+Provide:
+1. Primary Revenue Model - Most suitable model (subscription, one-time, freemium, marketplace, etc.) with brief justification
+2. Pricing Tiers - Suggest 2-3 pricing tiers with what each includes
+3. Alternative Models - 1-2 alternative monetization approaches to consider
+4. Revenue Projections - Realistic monthly revenue estimates at 100, 500, and 1000 customers/users
+
+Be REALISTIC and SPECIFIC. Consider the idea type (app, service, product, etc.) and target market. Focus on proven monetization patterns.
+
+Return ONLY a JSON object with:
+- primaryModel (string): Name of recommended model
+- modelRationale (string): 2-3 sentences why this fits
+- pricingTiers (array): 2-3 tiers with name, price, and features (array)
+- alternativeModels (array): 1-2 alternative approaches with name and description
+- projections (object): revenue estimates with keys users100, users500, users1000`,
+      },
+      {
+        role: 'user',
+        content: ideaText,
+      },
+    ],
+    temperature: 0.7,
+    response_format: { type: 'json_object' },
+  });
+
+  return JSON.parse(response.choices[0].message.content);
+}
+
+/**
+ * Generate Concept Branding (Business Name + Slogan)
+ */
+async function generateConceptBranding(ideaText) {
+  const openai = getOpenAI();
+
+  // Generate business name and slogan in parallel
+  const [nameResponse, sloganResponse] = await Promise.all([
+    openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a creative brand strategist specializing in naming. Generate a memorable, relevant business name for this idea.
+
+The name should:
+- Be 1-3 words maximum
+- Clearly relate to the core value/function
+- Be easy to pronounce and remember
+- Sound professional yet approachable
+- Avoid clichés and overused terms
+
+Return ONLY a JSON object with:
+- name (string): The suggested business name
+- rationale (string): 1-2 sentences explaining the name choice`,
+        },
+        {
+          role: 'user',
+          content: ideaText,
+        },
+      ],
+      temperature: 0.8,
+      response_format: { type: 'json_object' },
+    }),
+    openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a copywriter specializing in brand taglines. Create a compelling slogan for this business idea.
+
+The slogan should:
+- Be 3-8 words maximum
+- Capture the core benefit or differentiation
+- Be memorable and catchy
+- Use active, benefit-focused language
+- Avoid being too generic
+
+Return ONLY a JSON object with:
+- slogan (string): The tagline`,
+        },
+        {
+          role: 'user',
+          content: ideaText,
+        },
+      ],
+      temperature: 0.8,
+      response_format: { type: 'json_object' },
+    }),
+  ]);
+
+  const nameData = JSON.parse(nameResponse.choices[0].message.content);
+  const sloganData = JSON.parse(sloganResponse.choices[0].message.content);
+
+  return {
+    name: nameData.name,
+    nameRationale: nameData.rationale,
+    slogan: sloganData.slogan,
+  };
+}
+
+/**
  * Regenerate a specific card
  */
 exports.regenerateCard = functions.https.onCall(async (data, context) => {
@@ -260,16 +423,22 @@ exports.regenerateCard = functions.https.onCall(async (data, context) => {
       case 'summary':
         newCard = await generateSummaryCard(prompt);
         break;
-      case 'nextSteps':
-        newCard = await generateNextStepsCard(prompt);
+      case 'actionableInsights':
+        newCard = await generateActionableInsightsCard(prompt);
         break;
-      case 'similarConcepts':
-        newCard = await generateSimilarConceptsCard(prompt);
+      case 'userScenarios':
+        newCard = await generateUserScenariosCard(prompt);
+        break;
+      case 'monetization':
+        newCard = await generateMonetizationCard(prompt);
+        break;
+      case 'conceptBranding':
+        newCard = await generateConceptBranding(prompt);
         break;
       default:
         throw new functions.https.HttpsError(
           'invalid-argument',
-          'Invalid cardType.'
+          'Invalid cardType. Must be one of: summary, actionableInsights, userScenarios, monetization, conceptBranding'
         );
     }
 
@@ -366,6 +535,86 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
     return { success: true, response: aiResponse };
   } catch (error) {
     console.error('Error in chat:', error);
+    throw new functions.https.HttpsError('internal', error.message);
+  }
+});
+
+/**
+ * Regenerate just the business name
+ * Used by the regen button in Concept Branding section
+ */
+exports.regenerateBusinessName = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated.'
+    );
+  }
+
+  const { ideaId, ideaText } = data;
+
+  if (!ideaId || !ideaText) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'ideaId and ideaText are required.'
+    );
+  }
+
+  try {
+    const ideaRef = db.collection('ideas').doc(ideaId);
+    const ideaDoc = await ideaRef.get();
+
+    if (!ideaDoc.exists || ideaDoc.data().userId !== context.auth.uid) {
+      throw new functions.https.HttpsError('permission-denied', 'Access denied.');
+    }
+
+    // Generate only a new business name
+    const openai = getOpenAI();
+    const nameResponse = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a creative brand strategist specializing in naming. Generate a memorable, relevant business name for this idea.
+
+The name should:
+- Be 1-3 words maximum
+- Clearly relate to the core value/function
+- Be easy to pronounce and remember
+- Sound professional yet approachable
+- Avoid clichés and overused terms
+
+Return ONLY a JSON object with:
+- name (string): The suggested business name
+- rationale (string): 1-2 sentences explaining the name choice`,
+        },
+        {
+          role: 'user',
+          content: ideaText,
+        },
+      ],
+      temperature: 0.8,
+      response_format: { type: 'json_object' },
+    });
+
+    const nameData = JSON.parse(nameResponse.choices[0].message.content);
+
+    // Update only the business name in conceptBranding
+    const currentBranding = ideaDoc.data().cards?.conceptBranding || {};
+    await ideaRef.update({
+      'cards.conceptBranding.name': nameData.name,
+      'cards.conceptBranding.nameRationale': nameData.rationale,
+      'cards.conceptBranding.slogan': currentBranding.slogan || '', // Keep existing slogan
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      success: true,
+      name: nameData.name,
+      nameRationale: nameData.rationale,
+    };
+  } catch (error) {
+    console.error('Error regenerating business name:', error);
     throw new functions.https.HttpsError('internal', error.message);
   }
 });

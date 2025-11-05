@@ -139,24 +139,16 @@ export default function WorkspaceScreen({ navigation, route }) {
 
       {expandedCard === 'actionableInsights' && idea?.cards?.actionableInsights && (
         <View style={styles.cardContent}>
-          <Text style={styles.stepsHeader}>Here's what to do in the next 48 hours:</Text>
-          {idea.cards.actionableInsights.steps.map((step, index) => (
-            <View key={index} style={styles.stepItem}>
-              <View style={styles.stepHeader}>
-                <TouchableOpacity style={styles.checkbox}>
-                  <Text style={styles.checkboxText}>
-                    {step.completed ? '✓' : ''}
-                  </Text>
-                </TouchableOpacity>
-                <Text style={styles.stepTitle}>
-                  {index + 1}. {step.title}
-                </Text>
+          <Text style={styles.stepsHeader}>Strategic advice to develop your idea:</Text>
+          {idea.cards.actionableInsights.insights.map((insight, index) => (
+            <View key={index} style={styles.section}>
+              <View style={styles.insightHeader}>
+                <Text style={styles.sectionTitle}>{insight.title}</Text>
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryText}>{insight.category}</Text>
+                </View>
               </View>
-              {step.details.map((detail, detailIndex) => (
-                <Text key={detailIndex} style={styles.stepDetail}>
-                  • {detail}
-                </Text>
-              ))}
+              <Text style={styles.sectionText}>{insight.advice}</Text>
             </View>
           ))}
 
@@ -185,9 +177,23 @@ export default function WorkspaceScreen({ navigation, route }) {
           {idea?.cards?.userScenarios ? (
             <>
               {idea.cards.userScenarios.scenarios.map((scenario, index) => (
-                <View key={index} style={styles.section}>
-                  <Text style={styles.sectionTitle}>{scenario.title}</Text>
-                  <Text style={styles.sectionText}>{scenario.description}</Text>
+                <View key={index} style={styles.scenarioItem}>
+                  <Text style={styles.personaText}>{scenario.persona}</Text>
+                  <View style={styles.scenarioSection}>
+                    <Text style={styles.scenarioLabel}>Context:</Text>
+                    <Text style={styles.sectionText}>{scenario.context}</Text>
+                  </View>
+                  <View style={styles.scenarioSection}>
+                    <Text style={styles.scenarioLabel}>Journey:</Text>
+                    <Text style={styles.sectionText}>{scenario.journey}</Text>
+                  </View>
+                  <View style={styles.scenarioSection}>
+                    <Text style={styles.scenarioLabel}>Outcome:</Text>
+                    <Text style={styles.outcomeText}>{scenario.outcome}</Text>
+                  </View>
+                  {index < idea.cards.userScenarios.scenarios.length - 1 && (
+                    <View style={styles.divider} />
+                  )}
                 </View>
               ))}
               <TouchableOpacity style={styles.actionButton}>
@@ -221,19 +227,49 @@ export default function WorkspaceScreen({ navigation, route }) {
           {idea?.cards?.monetization ? (
             <>
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Revenue Model</Text>
-                <Text style={styles.sectionText}>{idea.cards.monetization.revenueModel}</Text>
+                <Text style={styles.sectionTitle}>Primary Revenue Model</Text>
+                <Text style={styles.monetizationModel}>{idea.cards.monetization.primaryModel}</Text>
+                <Text style={styles.sectionText}>{idea.cards.monetization.modelRationale}</Text>
               </View>
+
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Pricing Strategy</Text>
-                <Text style={styles.sectionText}>{idea.cards.monetization.pricingStrategy}</Text>
+                <Text style={styles.sectionTitle}>Pricing Tiers</Text>
+                {idea.cards.monetization.pricingTiers.map((tier, index) => (
+                  <View key={index} style={styles.pricingTier}>
+                    <View style={styles.tierHeader}>
+                      <Text style={styles.tierName}>{tier.name}</Text>
+                      <Text style={styles.tierPrice}>{tier.price}</Text>
+                    </View>
+                    {tier.features.map((feature, fIndex) => (
+                      <Text key={fIndex} style={styles.tierFeature}>
+                        • {feature}
+                      </Text>
+                    ))}
+                  </View>
+                ))}
               </View>
-              {idea.cards.monetization.projections && (
+
+              {idea.cards.monetization.alternativeModels && idea.cards.monetization.alternativeModels.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Projections</Text>
-                  <Text style={styles.sectionText}>{idea.cards.monetization.projections}</Text>
+                  <Text style={styles.sectionTitle}>Alternative Approaches</Text>
+                  {idea.cards.monetization.alternativeModels.map((alt, index) => (
+                    <View key={index} style={styles.alternativeModel}>
+                      <Text style={styles.altModelName}>{alt.name}</Text>
+                      <Text style={styles.sectionText}>{alt.description}</Text>
+                    </View>
+                  ))}
                 </View>
               )}
+
+              {idea.cards.monetization.projections && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Revenue Projections</Text>
+                  <Text style={styles.projectionText}>100 users: {idea.cards.monetization.projections.users100}</Text>
+                  <Text style={styles.projectionText}>500 users: {idea.cards.monetization.projections.users500}</Text>
+                  <Text style={styles.projectionText}>1000 users: {idea.cards.monetization.projections.users1000}</Text>
+                </View>
+              )}
+
               <TouchableOpacity style={styles.actionButton}>
                 <Text style={styles.actionButtonText}>Regenerate</Text>
               </TouchableOpacity>
@@ -634,5 +670,106 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
+  },
+  // Actionable Insights styles
+  insightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryBadge: {
+    backgroundColor: Colors.accent2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  categoryText: {
+    color: Colors.background,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  // User Scenarios styles
+  scenarioItem: {
+    marginBottom: 24,
+  },
+  personaText: {
+    color: Colors.accent1,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  scenarioSection: {
+    marginBottom: 8,
+  },
+  scenarioLabel: {
+    color: Colors.accent2,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  outcomeText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 16,
+  },
+  // Monetization styles
+  monetizationModel: {
+    color: Colors.accent1,
+    fontSize: 17,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  pricingTier: {
+    backgroundColor: Colors.background,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tierHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  tierName: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  tierPrice: {
+    color: Colors.accent1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  tierFeature: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginLeft: 8,
+  },
+  alternativeModel: {
+    marginBottom: 12,
+  },
+  altModelName: {
+    color: Colors.accent2,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  projectionText: {
+    color: Colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 24,
+    fontWeight: '500',
   },
 });
