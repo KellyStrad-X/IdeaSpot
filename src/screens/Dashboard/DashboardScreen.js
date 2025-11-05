@@ -23,6 +23,8 @@ export default function DashboardScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [loading, setLoading] = useState(true);
+  const swipeableRefs = useRef({});
+  const openSwipeableId = useRef(null);
 
   const filters = ['All', 'App', 'Product', 'Service', 'Software'];
 
@@ -100,15 +102,32 @@ export default function DashboardScreen({ navigation }) {
     );
   };
 
+  const closeOpenSwipeable = () => {
+    if (openSwipeableId.current && swipeableRefs.current[openSwipeableId.current]) {
+      swipeableRefs.current[openSwipeableId.current].close();
+      openSwipeableId.current = null;
+    }
+  };
+
+  const handleSwipeableOpen = (ideaId) => {
+    if (openSwipeableId.current !== ideaId) {
+      closeOpenSwipeable();
+      openSwipeableId.current = ideaId;
+    }
+  };
+
   const renderRightActions = (item) => {
     return (
       <View style={styles.swipeActions}>
         <TouchableOpacity
           style={styles.deleteButton}
-          onPress={() => handleDeleteIdea(item.id, item.title)}
+          onPress={() => {
+            closeOpenSwipeable();
+            handleDeleteIdea(item.id, item.title);
+          }}
+          activeOpacity={0.7}
         >
-          <Ionicons name="trash-outline" size={24} color={Colors.textPrimary} />
-          <Text style={styles.deleteButtonText}>Delete</Text>
+          <Ionicons name="trash" size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
       </View>
     );
@@ -120,13 +139,23 @@ export default function DashboardScreen({ navigation }) {
 
     return (
       <Swipeable
+        ref={(ref) => {
+          if (ref) {
+            swipeableRefs.current[item.id] = ref;
+          }
+        }}
         renderRightActions={() => renderRightActions(item)}
         overshootRight={false}
         rightThreshold={40}
+        onSwipeableOpen={() => handleSwipeableOpen(item.id)}
       >
         <TouchableOpacity
           style={styles.ideaCard}
-          onPress={() => navigation.navigate('Workspace', { ideaId: item.id })}
+          onPress={() => {
+            closeOpenSwipeable();
+            navigation.navigate('Workspace', { ideaId: item.id });
+          }}
+          activeOpacity={1}
         >
           <View style={styles.cardContent}>
             <Text style={styles.cardTitle}>{item.title}</Text>
@@ -203,6 +232,8 @@ export default function DashboardScreen({ navigation }) {
           renderItem={renderIdeaCard}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
+          onScroll={closeOpenSwipeable}
+          scrollEventThrottle={16}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateTitle}>
@@ -366,21 +397,21 @@ const styles = StyleSheet.create({
   swipeActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
+    paddingRight: 16,
   },
   deleteButton: {
     backgroundColor: Colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    height: '100%',
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  deleteButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
