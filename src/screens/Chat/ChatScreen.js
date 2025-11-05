@@ -143,7 +143,7 @@ export default function ChatScreen({ navigation, route }) {
           [
             {
               text: 'View Analysis',
-              onPress: () => navigation.replace('Workspace', { ideaId: newIdeaId }),
+              onPress: () => navigation.navigate('Workspace', { ideaId: newIdeaId }),
             },
             {
               text: 'Go to Dashboard',
@@ -173,7 +173,7 @@ export default function ChatScreen({ navigation, route }) {
           [
             {
               text: 'View Idea',
-              onPress: () => navigation.replace('Workspace', { ideaId: newIdeaId }),
+              onPress: () => navigation.navigate('Workspace', { ideaId: newIdeaId }),
             },
             {
               text: 'Go to Dashboard',
