@@ -397,12 +397,12 @@ const styles = StyleSheet.create({
   },
   backgroundLogo: {
     position: 'absolute',
-    width: 300,
-    height: 120,
+    width: 450,
+    height: 180,
     opacity: 0.22,
     top: '35%',
     left: '50%',
-    marginLeft: -150,
+    marginLeft: -225,
     zIndex: 0,
   },
 });

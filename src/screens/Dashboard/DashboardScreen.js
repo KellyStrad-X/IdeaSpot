@@ -433,8 +433,8 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   footerLogo: {
-    width: 150,
-    height: 60,
+    width: 180,
+    height: 72,
     opacity: 0.6,
   },
 });
