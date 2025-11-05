@@ -125,6 +125,11 @@ function MainStack() {
           title: 'Dashboard',
           headerShown: true,
           headerRight: () => <SignOutButton />,
+          headerTitleAlign: 'left',
+          headerTitleStyle: {
+            fontWeight: '700',
+            fontSize: 24,
+          },
         }}
       />
       <Stack.Screen
