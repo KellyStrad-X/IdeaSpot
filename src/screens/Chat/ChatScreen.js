@@ -146,7 +146,7 @@ export default function ChatScreen({ navigation, route }) {
             },
             {
               text: 'Go to Dashboard',
-              onPress: () => navigation.navigate('Dashboard'),
+              onPress: () => navigation.navigate('DashboardHome'),
             },
           ]
         );
@@ -176,7 +176,7 @@ export default function ChatScreen({ navigation, route }) {
             },
             {
               text: 'Go to Dashboard',
-              onPress: () => navigation.navigate('Dashboard'),
+              onPress: () => navigation.navigate('DashboardHome'),
             },
           ]
         );

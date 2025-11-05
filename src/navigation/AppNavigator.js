@@ -1,7 +1,9 @@
 import React from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -11,8 +13,10 @@ import SignupScreen from '../screens/Auth/SignupScreen';
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
 import WorkspaceScreen from '../screens/Workspace/WorkspaceScreen';
+import ExploreScreen from '../screens/Explore/ExploreScreen';
 
 const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
 
 // Custom theme that merges DarkTheme to preserve fonts
 const navigationTheme = {
@@ -95,11 +99,10 @@ function SignOutButton() {
   );
 }
 
-// Main app stack for authenticated users
-function MainStack() {
+// Dashboard stack for the Dashboard tab
+function DashboardStack() {
   return (
     <Stack.Navigator
-      initialRouteName="Dashboard"
       screenOptions={{
         headerStyle: {
           backgroundColor: Colors.background,
@@ -119,7 +122,7 @@ function MainStack() {
       }}
     >
       <Stack.Screen
-        name="Dashboard"
+        name="DashboardHome"
         component={DashboardScreen}
         options={{
           title: 'Dashboard',
@@ -152,6 +155,84 @@ function MainStack() {
   );
 }
 
+// Explore stack for the Explore tab
+function ExploreStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: Colors.background,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: Colors.border,
+        },
+        headerTintColor: Colors.textPrimary,
+        headerTitleStyle: {
+          fontWeight: '600',
+          fontSize: 18,
+        },
+        cardStyle: {
+          backgroundColor: Colors.background,
+        },
+      }}
+    >
+      <Stack.Screen
+        name="ExploreHome"
+        component={ExploreScreen}
+        options={{
+          title: 'Explore',
+          headerShown: true,
+          headerTitleAlign: 'left',
+          headerTitleStyle: {
+            fontWeight: '700',
+            fontSize: 24,
+          },
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+// Main tab navigator for authenticated users
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Explore') {
+            iconName = focused ? 'compass' : 'compass-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: Colors.accent1,
+        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopColor: Colors.border,
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Dashboard" component={DashboardStack} />
+      <Tab.Screen name="Explore" component={ExploreStack} />
+    </Tab.Navigator>
+  );
+}
+
 export default function AppNavigator() {
   const { user, loading } = useAuth();
 
@@ -160,7 +241,7 @@ export default function AppNavigator() {
       {loading ? (
         <LoadingScreen />
       ) : user ? (
-        <MainStack />
+        <MainTabs />
       ) : (
         <AuthStack />
       )}
