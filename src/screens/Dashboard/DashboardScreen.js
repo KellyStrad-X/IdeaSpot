@@ -21,7 +21,7 @@ export default function DashboardScreen({ navigation }) {
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [loading, setLoading] = useState(true);
 
-  const filters = ['All', 'In Progress', 'Business', 'Tech', 'Social'];
+  const filters = ['All', 'App', 'Product', 'Service', 'Software'];
 
   // Subscribe to user's ideas from Firestore
   useEffect(() => {
