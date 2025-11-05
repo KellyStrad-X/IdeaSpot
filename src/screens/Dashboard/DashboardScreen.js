@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   TextInput,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { subscribeToUserIdeas } from '../../services/firestore';
+import { subscribeToUserIdeas, deleteIdea } from '../../services/firestore';
 
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
@@ -73,32 +76,76 @@ export default function DashboardScreen({ navigation }) {
     return date.toLocaleDateString();
   };
 
+  const handleDeleteIdea = (ideaId, ideaTitle) => {
+    Alert.alert(
+      'Delete Idea',
+      `Are you sure you want to delete "${ideaTitle}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteIdea(ideaId);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete idea');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const renderRightActions = (item) => {
+    return (
+      <View style={styles.swipeActions}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteIdea(item.id, item.title)}
+        >
+          <Ionicons name="trash-outline" size={24} color={Colors.textPrimary} />
+          <Text style={styles.deleteButtonText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderIdeaCard = ({ item }) => {
     // Get preview text from summary card or original input
     const preview = item.cards?.summary?.problem || item.originalInput || 'No description yet';
 
     return (
-      <TouchableOpacity
-        style={styles.ideaCard}
-        onPress={() => navigation.navigate('Workspace', { ideaId: item.id })}
+      <Swipeable
+        renderRightActions={() => renderRightActions(item)}
+        overshootRight={false}
+        rightThreshold={40}
       >
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardPreview} numberOfLines={2}>
-            {preview}
-          </Text>
-          <View style={styles.cardFooter}>
-            <View style={styles.tags}>
-              {item.tags && item.tags.slice(0, 3).map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
+        <TouchableOpacity
+          style={styles.ideaCard}
+          onPress={() => navigation.navigate('Workspace', { ideaId: item.id })}
+        >
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <Text style={styles.cardPreview} numberOfLines={2}>
+              {preview}
+            </Text>
+            <View style={styles.cardFooter}>
+              <View style={styles.tags}>
+                {item.tags && item.tags.slice(0, 3).map((tag, index) => (
+                  <View key={index} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
             </View>
-            <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -315,5 +362,25 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '400',
     marginTop: -2,
+  },
+  swipeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteButton: {
+    backgroundColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  deleteButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
