@@ -10,12 +10,51 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Animated,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToUserIdeas, deleteIdea } from '../../services/firestore';
+
+// Pulsing overlay component for analyzing ideas
+function AnalyzingOverlay() {
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  const opacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <Animated.View style={[styles.analyzingOverlay, { opacity }]}>
+      <View style={styles.analyzingContent}>
+        <ActivityIndicator size="large" color={Colors.accent1} />
+        <Text style={styles.analyzingText}>Analyzing...</Text>
+      </View>
+    </Animated.View>
+  );
+}
 
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
@@ -26,6 +65,7 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const swipeableRefs = useRef({});
   const openSwipeableId = useRef(null);
+  const previousIdeas = useRef({});
 
   const filters = ['All', 'App', 'Product', 'Service', 'Software'];
 
@@ -34,12 +74,41 @@ export default function DashboardScreen({ navigation }) {
     if (!user) return;
 
     const unsubscribe = subscribeToUserIdeas(user.uid, (userIdeas) => {
+      // Check if any idea just finished analyzing
+      userIdeas.forEach((idea) => {
+        const previousIdea = previousIdeas.current[idea.id];
+        if (previousIdea?.analyzing === true && idea.analyzing === false) {
+          // Analysis just completed
+          Alert.alert(
+            'Analysis Complete!',
+            `Your idea "${idea.title}" has been analyzed.`,
+            [
+              {
+                text: 'View Now',
+                onPress: () => navigation.navigate('Workspace', { ideaId: idea.id }),
+              },
+              {
+                text: 'Later',
+                style: 'cancel',
+              },
+            ]
+          );
+        }
+      });
+
+      // Update previous ideas state
+      const ideasMap = {};
+      userIdeas.forEach((idea) => {
+        ideasMap[idea.id] = { analyzing: idea.analyzing };
+      });
+      previousIdeas.current = ideasMap;
+
       setIdeas(userIdeas);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, navigation]);
 
   // Filter and search ideas
   useEffect(() => {
@@ -137,6 +206,7 @@ export default function DashboardScreen({ navigation }) {
   const renderIdeaCard = ({ item }) => {
     // Get preview text from summary card or original input
     const preview = item.cards?.summary?.problem || item.originalInput || 'No description yet';
+    const isAnalyzing = item.analyzing === true;
 
     return (
       <Swipeable
@@ -149,16 +219,21 @@ export default function DashboardScreen({ navigation }) {
         overshootRight={false}
         rightThreshold={40}
         onSwipeableOpen={() => handleSwipeableOpen(item.id)}
+        enabled={!isAnalyzing}
       >
         <TouchableOpacity
-          style={styles.ideaCard}
+          style={[styles.ideaCard, isAnalyzing && styles.ideaCardAnalyzing]}
           onPress={() => {
+            if (isAnalyzing) {
+              Alert.alert('Analysis in Progress', 'Your idea is currently being analyzed. Please wait...');
+              return;
+            }
             closeOpenSwipeable();
             navigation.navigate('Workspace', { ideaId: item.id });
           }}
-          activeOpacity={1}
+          activeOpacity={isAnalyzing ? 1 : 0.7}
         >
-          <View style={styles.cardContent}>
+          <View style={[styles.cardContent, isAnalyzing && styles.cardContentAnalyzing]}>
             <Text style={styles.cardTitle}>{item.title}</Text>
             <Text style={styles.cardPreview} numberOfLines={2}>
               {preview}
@@ -174,6 +249,7 @@ export default function DashboardScreen({ navigation }) {
               <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
             </View>
           </View>
+          {isAnalyzing && <AnalyzingOverlay />}
         </TouchableOpacity>
       </Swipeable>
     );
@@ -327,8 +403,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
   },
+  ideaCardAnalyzing: {
+    position: 'relative',
+  },
   cardContent: {
     padding: 16,
+  },
+  cardContentAnalyzing: {
+    opacity: 0.4,
   },
   cardTitle: {
     color: Colors.textPrimary,
@@ -436,5 +518,25 @@ const styles = StyleSheet.create({
     width: 180,
     height: 72,
     opacity: 0.6,
+  },
+  analyzingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  analyzingContent: {
+    alignItems: 'center',
+  },
+  analyzingText: {
+    color: Colors.accent1,
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
   },
 });

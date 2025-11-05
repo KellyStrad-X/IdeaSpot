@@ -76,7 +76,7 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
       generateTitle(ideaText),
     ]);
 
-    // Update the idea document with all cards and title
+    // Update the idea document with all cards and title, clear analyzing flag
     await ideaRef.update({
       title,
       cards: {
@@ -86,6 +86,7 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
         monetization: monetizationCard,
         conceptBranding: conceptBranding,
       },
+      analyzing: false, // Clear the analyzing flag
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -102,6 +103,15 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error generating cards:', error);
+
+    // Clear analyzing flag on error
+    try {
+      const ideaRef = db.collection('ideas').doc(ideaId);
+      await ideaRef.update({ analyzing: false });
+    } catch (updateError) {
+      console.error('Error clearing analyzing flag:', updateError);
+    }
+
     throw new functions.https.HttpsError('internal', error.message);
   }
 });

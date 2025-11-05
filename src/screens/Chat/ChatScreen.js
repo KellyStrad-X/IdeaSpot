@@ -119,13 +119,14 @@ export default function ChatScreen({ navigation, route }) {
 
     try {
       if (reply === 'Summarize & analyze') {
-        // Create the idea in Firestore first
+        // Create the idea in Firestore with analyzing flag
         const title = generateIdeaTitle(firstUserMessage);
         const newIdeaId = await createIdea(user.uid, {
           title,
           originalInput: firstUserMessage,
           tags: ['Uncategorized'], // Will be updated by AI
           status: 'active',
+          analyzing: true, // Flag to show in-progress state
         });
 
         // Save chat messages to the idea
@@ -134,23 +135,14 @@ export default function ChatScreen({ navigation, route }) {
           await addChatMessage(newIdeaId, msg.role, msg.content);
         }
 
-        // Generate AI cards via Cloud Function
-        const result = await generateIdeaCards(newIdeaId, firstUserMessage);
+        // Navigate to dashboard immediately
+        navigation.navigate('DashboardHome');
 
-        Alert.alert(
-          'Success',
-          'Your idea has been analyzed and saved!',
-          [
-            {
-              text: 'View Analysis',
-              onPress: () => navigation.navigate('Workspace', { ideaId: newIdeaId }),
-            },
-            {
-              text: 'Go to Dashboard',
-              onPress: () => navigation.navigate('DashboardHome'),
-            },
-          ]
-        );
+        // Generate AI cards asynchronously (runs in background)
+        generateIdeaCards(newIdeaId, firstUserMessage).catch((error) => {
+          console.error('Error generating cards:', error);
+          // Analysis failed - the analyzing flag will be cleared by the function
+        });
       } else if (reply === 'Save to library') {
         // Simple save without AI analysis
         const title = generateIdeaTitle(firstUserMessage);
