@@ -254,19 +254,19 @@ export default function WorkspaceScreen({ navigation, route }) {
 
       {/* Business Name Field with Regen Button */}
       <View style={styles.section}>
-        <View style={styles.fieldHeaderRow}>
-          <Text style={styles.sectionTitle}>Business Name</Text>
-          <TouchableOpacity style={styles.regenButton}>
-            <Text style={styles.regenButtonText}>↻ Regen</Text>
+        <Text style={styles.sectionTitle}>Business Name</Text>
+        <View style={styles.inputWithButton}>
+          <TextInput
+            style={styles.businessNameInput}
+            placeholder="Enter business name..."
+            placeholderTextColor={Colors.textTertiary}
+            value={businessName}
+            onChangeText={setBusinessName}
+          />
+          <TouchableOpacity style={styles.regenIconButton}>
+            <Text style={styles.regenIconText}>↻</Text>
           </TouchableOpacity>
         </View>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Enter business name..."
-          placeholderTextColor={Colors.textTertiary}
-          value={businessName}
-          onChangeText={setBusinessName}
-        />
       </View>
 
       {/* Slogan Field */}
@@ -546,22 +546,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-  fieldHeaderRow: {
+  inputWithButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    gap: 8,
   },
-  regenButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+  businessNameInput: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 10,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    minHeight: 40,
+  },
+  regenIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.accent1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
   },
-  regenButtonText: {
+  regenIconText: {
     color: Colors.accent1,
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: '600',
   },
   textInput: {
