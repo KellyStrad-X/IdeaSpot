@@ -8,6 +8,7 @@ import {
   TextInput,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
@@ -106,6 +107,16 @@ export default function DashboardScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
 
+      {/* Header */}
+      <View style={styles.header}>
+        <Image
+          source={require('../../../public/logos/IdeaSpot Logo Main.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.headerTitle}>Ideas Dashboard</Text>
+      </View>
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
@@ -188,6 +199,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+  },
+  headerTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '700',
   },
   loadingContainer: {
     flex: 1,
