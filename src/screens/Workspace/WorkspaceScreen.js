@@ -349,12 +349,17 @@ export default function WorkspaceScreen({ navigation, route }) {
         <View style={styles.header}>
           <Text style={styles.ideaTitle}>{idea.title}</Text>
           <View style={styles.metadata}>
-            <View style={styles.tags}>
-              {idea.tags && idea.tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
+            <View style={styles.tagsRow}>
+              <View style={styles.tags}>
+                {idea.tags && idea.tags.map((tag, index) => (
+                  <View key={index} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+              {idea.cards?.conceptBranding?.name && (
+                <Text style={styles.businessName}>{idea.cards.conceptBranding.name}</Text>
+              )}
             </View>
             <Text style={styles.date}>{formatDate(idea.createdAt)}</Text>
           </View>
@@ -448,6 +453,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  tagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   tags: {
     flexDirection: 'row',
   },
@@ -462,6 +473,13 @@ const styles = StyleSheet.create({
     color: Colors.accent2,
     fontSize: 12,
     fontWeight: '500',
+  },
+  businessName: {
+    color: Colors.accent4,
+    fontSize: 17,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    marginLeft: 4,
   },
   date: {
     color: Colors.textTertiary,

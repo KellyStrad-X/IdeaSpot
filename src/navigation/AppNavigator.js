@@ -125,13 +125,14 @@ function DashboardStack() {
         name="DashboardHome"
         component={DashboardScreen}
         options={{
-          title: 'Dashboard',
+          title: 'DASHBOARD',
           headerShown: true,
           headerRight: () => <SignOutButton />,
           headerTitleAlign: 'left',
           headerTitleStyle: {
-            fontWeight: '700',
+            fontWeight: '900',
             fontSize: 24,
+            letterSpacing: 1.5,
           },
         }}
       />
@@ -151,8 +152,8 @@ function DashboardStack() {
           headerShown: true,
           headerRight: () => (
             <View style={{ marginRight: 16 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '600' }}>
-                IDEA workspace
+              <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '900', letterSpacing: 1.2 }}>
+                IDEA WORKSPACE
               </Text>
             </View>
           ),
