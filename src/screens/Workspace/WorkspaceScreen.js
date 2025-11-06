@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getIdea } from '../../services/firestore';
 
@@ -22,6 +23,8 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [expandedCard, setExpandedCard] = useState(null);
   const [businessName, setBusinessName] = useState('');
   const [elevatorPitch, setElevatorPitch] = useState('');
+  const [isEditingPitch, setIsEditingPitch] = useState(false);
+  const elevatorPitchRef = useRef(null);
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -294,8 +297,32 @@ export default function WorkspaceScreen({ navigation, route }) {
 
       {/* Elevator Pitch Field */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Elevator Pitch</Text>
+        <View style={styles.sectionHeaderWithButton}>
+          <Text style={styles.sectionTitle}>Elevator Pitch</Text>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => {
+              if (isEditingPitch) {
+                setIsEditingPitch(false);
+                elevatorPitchRef.current?.blur();
+              } else {
+                setIsEditingPitch(true);
+                setTimeout(() => elevatorPitchRef.current?.focus(), 100);
+              }
+            }}
+          >
+            <Ionicons
+              name={isEditingPitch ? "checkmark-circle" : "pencil"}
+              size={20}
+              color={isEditingPitch ? Colors.accent4 : Colors.accent1}
+            />
+            <Text style={[styles.editButtonText, isEditingPitch && styles.editButtonTextActive]}>
+              {isEditingPitch ? "Done" : "Edit"}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
+          ref={elevatorPitchRef}
           style={styles.elevatorPitchInput}
           placeholder="Enter elevator pitch..."
           placeholderTextColor={Colors.textTertiary}
@@ -304,6 +331,8 @@ export default function WorkspaceScreen({ navigation, route }) {
           multiline
           numberOfLines={5}
           textAlignVertical="top"
+          editable={isEditingPitch}
+          scrollEnabled={!isEditingPitch}
         />
       </View>
 
@@ -533,6 +562,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  sectionHeaderWithButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+  },
+  editButtonText: {
+    color: Colors.accent1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editButtonTextActive: {
+    color: Colors.accent4,
   },
   sectionText: {
     color: Colors.textSecondary,
