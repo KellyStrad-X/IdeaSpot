@@ -157,6 +157,7 @@ function DashboardStack() {
         options={{
           title: '',
           headerShown: true,
+          gestureEnabled: false,
           headerRight: () => (
             <View style={{ marginRight: 16 }}>
               <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '600' }}>

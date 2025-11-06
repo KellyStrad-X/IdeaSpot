@@ -30,6 +30,8 @@ const DOUBLE_TAP_DELAY = 220;
 const DRAG_ACTIVATION_THRESHOLD = 8;
 const NOTE_CARD_WIDTH = 200;
 const NOTE_CARD_MIN_HEIGHT = 140;
+const MIN_CANVAS_SCALE = 0.7;
+const MAX_CANVAS_SCALE = 2.2;
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
@@ -111,22 +113,49 @@ export default function WorkspaceScreen({ navigation, route }) {
   const justFinishedDrag = useRef(false);
   const canvasBaseOffset = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const canvasPan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const canvasScale = useRef(new Animated.Value(1)).current;
   const canvasOffsetRef = useRef({ x: 0, y: 0 });
+  const canvasScaleRef = useRef(1);
   const viewportSizeRef = useRef({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
   const noteMeasurements = useRef({}).current;
   const noteLayoutHandlers = useRef({}).current;
+  const pinchGestureRef = useRef(null);
 
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-  const getCanvasBounds = () => {
+  const getDistance = (touch1, touch2) => {
+    const dx = touch1.pageX - touch2.pageX;
+    const dy = touch1.pageY - touch2.pageY;
+    return Math.sqrt((dx * dx) + (dy * dy));
+  };
+
+  const getCenter = (touches) => {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return {
+      x: (touch1.pageX + touch2.pageX) / 2,
+      y: (touch1.pageY + touch2.pageY) / 2,
+    };
+  };
+
+  const getCanvasBounds = (scale = canvasScaleRef.current) => {
     const { width, height } = viewportSizeRef.current;
-    const minX = width >= CANVAS_WIDTH ? 0 : width - CANVAS_WIDTH;
-    const minY = height >= CANVAS_HEIGHT ? 0 : height - CANVAS_HEIGHT;
+    const scaledWidth = CANVAS_WIDTH * scale;
+    const scaledHeight = CANVAS_HEIGHT * scale;
+
+    const horizontalSpace = width - scaledWidth;
+    const verticalSpace = height - scaledHeight;
+
+    const minX = horizontalSpace >= 0 ? horizontalSpace / 2 : horizontalSpace;
+    const maxX = horizontalSpace >= 0 ? horizontalSpace / 2 : 0;
+    const minY = verticalSpace >= 0 ? verticalSpace / 2 : verticalSpace;
+    const maxY = verticalSpace >= 0 ? verticalSpace / 2 : 0;
+
     return {
       minX,
-      maxX: 0,
+      maxX,
       minY,
-      maxY: 0,
+      maxY,
     };
   };
 
@@ -148,44 +177,131 @@ export default function WorkspaceScreen({ navigation, route }) {
     return dots;
   }, []);
 
-  const finalizeCanvasPan = (gestureState) => {
-    const { minX, maxX, minY, maxY } = getCanvasBounds();
-    const finalX = clamp(canvasOffsetRef.current.x + gestureState.dx, minX, maxX);
-    const finalY = clamp(canvasOffsetRef.current.y + gestureState.dy, minY, maxY);
-    canvasOffsetRef.current = { x: finalX, y: finalY };
-    canvasBaseOffset.setValue(canvasOffsetRef.current);
-    canvasPan.setValue({ x: 0, y: 0 });
-  };
-
   const canvasPanResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
-    onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length === 2,
-    onMoveShouldSetPanResponder: (evt, gestureState) =>
-      evt.nativeEvent.touches.length === 2 &&
-      (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2),
-    onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
-      evt.nativeEvent.touches.length === 2 &&
-      (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2),
-    onPanResponderGrant: () => {
-      canvasPan.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderMove: (evt, gestureState) => {
-      if (evt.nativeEvent.touches.length !== 2) {
+    onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length >= 2,
+    onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
+    onMoveShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length >= 2,
+    onMoveShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
+    onPanResponderGrant: (evt) => {
+      if (evt.nativeEvent.touches.length < 2) {
         return;
       }
-      const { minX, maxX, minY, maxY } = getCanvasBounds();
-      const targetX = clamp(canvasOffsetRef.current.x + gestureState.dx, minX, maxX);
-      const targetY = clamp(canvasOffsetRef.current.y + gestureState.dy, minY, maxY);
+
+      const touches = evt.nativeEvent.touches;
+      const distance = getDistance(touches[0], touches[1]);
+      if (distance <= 0) {
+        return;
+      }
+
+      const center = getCenter(touches);
+      const currentScale = canvasScaleRef.current;
+      const worldPoint = {
+        x: (center.x - canvasOffsetRef.current.x) / currentScale,
+        y: (center.y - canvasOffsetRef.current.y) / currentScale,
+      };
+
+      pinchGestureRef.current = {
+        initialDistance: distance,
+        initialScale: currentScale,
+        worldPoint,
+        currentScale,
+        currentOffset: { ...canvasOffsetRef.current },
+      };
+
+      canvasPan.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: (evt) => {
+      const touches = evt.nativeEvent.touches;
+      if (touches.length < 2) {
+        return;
+      }
+
+      const [touch1, touch2] = touches;
+      const distance = getDistance(touch1, touch2);
+      if (distance <= 0) {
+        return;
+      }
+
+      if (!pinchGestureRef.current) {
+        const currentScale = canvasScaleRef.current;
+        const center = getCenter(touches);
+        const worldPoint = {
+          x: (center.x - canvasOffsetRef.current.x) / currentScale,
+          y: (center.y - canvasOffsetRef.current.y) / currentScale,
+        };
+
+        pinchGestureRef.current = {
+          initialDistance: distance,
+          initialScale: currentScale,
+          worldPoint,
+          currentScale,
+          currentOffset: { ...canvasOffsetRef.current },
+        };
+
+        canvasPan.setValue({ x: 0, y: 0 });
+      }
+
+      if (!pinchGestureRef.current || pinchGestureRef.current.initialDistance <= 0) {
+        return;
+      }
+
+      const initialScale = pinchGestureRef.current.initialScale;
+      let nextScale = initialScale * (distance / pinchGestureRef.current.initialDistance);
+      nextScale = clamp(nextScale, MIN_CANVAS_SCALE, MAX_CANVAS_SCALE);
+
+      const center = getCenter(touches);
+      const worldPoint = pinchGestureRef.current.worldPoint;
+      let offsetX = center.x - nextScale * worldPoint.x;
+      let offsetY = center.y - nextScale * worldPoint.y;
+
+      const { minX, maxX, minY, maxY } = getCanvasBounds(nextScale);
+      offsetX = clamp(offsetX, minX, maxX);
+      offsetY = clamp(offsetY, minY, maxY);
+
+      canvasScale.setValue(nextScale);
+      canvasScaleRef.current = nextScale;
+
       canvasPan.setValue({
-        x: targetX - canvasOffsetRef.current.x,
-        y: targetY - canvasOffsetRef.current.y,
+        x: offsetX - canvasOffsetRef.current.x,
+        y: offsetY - canvasOffsetRef.current.y,
       });
+
+      pinchGestureRef.current.currentScale = nextScale;
+      pinchGestureRef.current.currentOffset = { x: offsetX, y: offsetY };
     },
-    onPanResponderRelease: (evt, gestureState) => {
-      finalizeCanvasPan(gestureState);
+    onPanResponderRelease: () => {
+      if (pinchGestureRef.current) {
+        canvasOffsetRef.current = pinchGestureRef.current.currentOffset;
+        canvasBaseOffset.setValue(canvasOffsetRef.current);
+        canvasPan.setValue({ x: 0, y: 0 });
+        canvasScale.setValue(pinchGestureRef.current.currentScale);
+        canvasScaleRef.current = pinchGestureRef.current.currentScale;
+        pinchGestureRef.current = null;
+      } else {
+        const { minX, maxX, minY, maxY } = getCanvasBounds();
+        const targetX = clamp(canvasOffsetRef.current.x + canvasPan.x._value, minX, maxX);
+        const targetY = clamp(canvasOffsetRef.current.y + canvasPan.y._value, minY, maxY);
+        canvasOffsetRef.current = { x: targetX, y: targetY };
+        canvasBaseOffset.setValue(canvasOffsetRef.current);
+        canvasPan.setValue({ x: 0, y: 0 });
+      }
     },
-    onPanResponderTerminate: (evt, gestureState) => {
-      finalizeCanvasPan(gestureState);
+    onPanResponderTerminate: () => {
+      if (pinchGestureRef.current) {
+        canvasOffsetRef.current = pinchGestureRef.current.currentOffset;
+        canvasBaseOffset.setValue(canvasOffsetRef.current);
+        canvasPan.setValue({ x: 0, y: 0 });
+        canvasScale.setValue(pinchGestureRef.current.currentScale);
+        canvasScaleRef.current = pinchGestureRef.current.currentScale;
+        pinchGestureRef.current = null;
+      } else {
+        const { minX, maxX, minY, maxY } = getCanvasBounds();
+        const targetX = clamp(canvasOffsetRef.current.x + canvasPan.x._value, minX, maxX);
+        const targetY = clamp(canvasOffsetRef.current.y + canvasPan.y._value, minY, maxY);
+        canvasOffsetRef.current = { x: targetX, y: targetY };
+        canvasBaseOffset.setValue(canvasOffsetRef.current);
+        canvasPan.setValue({ x: 0, y: 0 });
+      }
     },
   })).current;
 
@@ -439,10 +555,13 @@ export default function WorkspaceScreen({ navigation, route }) {
             useNativeDriver: false,
             listener: (_, gesture) => {
               if (gesture.numberActiveTouches > 1) {
-                if (longPressTimeout) {
-                  clearTimeout(longPressTimeout);
-                  longPressTimeout = null;
+                clearTimers();
+                if (isDragging) {
+                  isDragging = false;
+                  setDraggingNoteId(null);
                 }
+                pan.setValue({ x: 0, y: 0 });
+                lastTapTimestamp = 0;
                 return;
               }
 
@@ -474,6 +593,9 @@ export default function WorkspaceScreen({ navigation, route }) {
             // Get the current animated values (these are the actual drag deltas)
             const dx = pan.x._value;
             const dy = pan.y._value;
+            const scale = canvasScaleRef.current || 1;
+            const dxWorld = dx / scale;
+            const dyWorld = dy / scale;
 
             // Update note position in state
             // IMPORTANT: Look up current note position from state, not from closure
@@ -487,8 +609,8 @@ export default function WorkspaceScreen({ navigation, route }) {
                   const maxY = Math.max(0, CANVAS_HEIGHT - noteHeight);
 
                   // Use current position from state, not stale closure variable
-                  const newX = n.position.x + dx;
-                  const newY = n.position.y + dy;
+                  const newX = n.position.x + dxWorld;
+                  const newY = n.position.y + dyWorld;
 
                   const clampedX = clamp(newX, 0, maxX);
                   const clampedY = clamp(newY, 0, maxY);
@@ -927,10 +1049,8 @@ export default function WorkspaceScreen({ navigation, route }) {
         >
           <Animated.View
             style={[
-              styles.canvasContent,
+              styles.canvasContentWrapper,
               {
-                width: CANVAS_WIDTH,
-                height: CANVAS_HEIGHT,
                 transform: [
                   { translateX: Animated.add(canvasBaseOffset.x, canvasPan.x) },
                   { translateY: Animated.add(canvasBaseOffset.y, canvasPan.y) },
@@ -939,37 +1059,46 @@ export default function WorkspaceScreen({ navigation, route }) {
             ]}
             {...canvasPanResponder.panHandlers}
           >
-            <View style={styles.gridBackground}>
-              {gridDots.map(dot => (
-                <View
-                  key={dot.key}
-                  style={[
-                    styles.gridDot,
-                    { top: dot.top, left: dot.left }
-                  ]}
-                />
-              ))}
-            </View>
+            <Animated.View
+              style={[
+                styles.canvasContent,
+                {
+                  transform: [{ scale: canvasScale }],
+                },
+              ]}
+            >
+              <View style={styles.gridBackground}>
+                {gridDots.map(dot => (
+                  <View
+                    key={dot.key}
+                    style={[
+                      styles.gridDot,
+                      { top: dot.top, left: dot.left }
+                    ]}
+                  />
+                ))}
+              </View>
 
-            {/* Render notes */}
-            {notes.map(note => {
-              const category = NOTE_CATEGORIES.find(c => c.id === note.category);
-              const panResponder = getNotePanResponder(note);
-              const pan = notePanValues[note.id];
-              const isDragging = draggingNoteId === note.id;
+              {/* Render notes */}
+              {notes.map(note => {
+                const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+                const panResponder = getNotePanResponder(note);
+                const pan = notePanValues[note.id];
+                const isDragging = draggingNoteId === note.id;
 
-              return (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  category={category}
-                  panResponder={panResponder}
-                  pan={pan}
-                  isDragging={isDragging}
-                  onLayout={getNoteLayoutHandler(note.id)}
-                />
-              );
-            })}
+                return (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    category={category}
+                    panResponder={panResponder}
+                    pan={pan}
+                    isDragging={isDragging}
+                    onLayout={getNoteLayoutHandler(note.id)}
+                  />
+                );
+              })}
+            </Animated.View>
           </Animated.View>
 
           {/* Floating Close Button */}
@@ -998,13 +1127,16 @@ export default function WorkspaceScreen({ navigation, route }) {
               style={styles.floatingNewNoteButton}
               onPress={() => {
                 const { width: viewportWidth, height: viewportHeight } = viewportSizeRef.current;
-                const viewportCenterX = -canvasOffsetRef.current.x + (viewportWidth / 2) - (NOTE_CARD_WIDTH / 2);
-                const viewportCenterY = -canvasOffsetRef.current.y + (viewportHeight / 2) - (NOTE_CARD_MIN_HEIGHT / 2);
+                const scale = canvasScaleRef.current || 1;
+                const targetScreenX = (viewportWidth / 2) - (NOTE_CARD_WIDTH / 2);
+                const targetScreenY = (viewportHeight / 2) - (NOTE_CARD_MIN_HEIGHT / 2);
+                const worldX = (targetScreenX - canvasOffsetRef.current.x) / scale;
+                const worldY = (targetScreenY - canvasOffsetRef.current.y) / scale;
                 const maxX = Math.max(0, CANVAS_WIDTH - NOTE_CARD_WIDTH);
                 const maxY = Math.max(0, CANVAS_HEIGHT - NOTE_CARD_MIN_HEIGHT);
                 setTapPosition({
-                  x: clamp(viewportCenterX, 0, maxX),
-                  y: clamp(viewportCenterY, 0, maxY),
+                  x: clamp(worldX, 0, maxX),
+                  y: clamp(worldY, 0, maxY),
                 });
                 setCurrentNote(null);
                 setNoteTitle('');
@@ -1486,10 +1618,19 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  canvasContentWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
+  },
   canvasContent: {
     position: 'absolute',
     top: 0,
     left: 0,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
   },
   floatingCloseButton: {
     position: 'absolute',
