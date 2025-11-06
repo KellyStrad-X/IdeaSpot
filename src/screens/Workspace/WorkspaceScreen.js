@@ -561,24 +561,38 @@ export default function WorkspaceScreen({ navigation, route }) {
             style={styles.floatingCloseButton}
             onPress={toggleNotes}
           >
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
+            <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
 
-          {/* Floating New Note Button */}
-          <TouchableOpacity
-            style={styles.floatingNewNoteButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              setTapPosition({ x: SCREEN_WIDTH / 2 - 100, y: 200 });
-              setCurrentNote(null);
-              setNoteTitle('');
-              setNoteCategory('feature');
-              setNoteContent('');
-              setModalVisible(true);
-            }}
-          >
-            <Ionicons name="add" size={32} color={Colors.textPrimary} />
-          </TouchableOpacity>
+          {/* Floating Action Buttons Container */}
+          <View style={styles.floatingActionsContainer}>
+            {/* Import Button (Placeholder) */}
+            <TouchableOpacity
+              style={styles.floatingImportButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                Alert.alert('Import', 'Import functionality coming soon!');
+              }}
+            >
+              <Ionicons name="cloud-upload-outline" size={20} color={Colors.textPrimary} />
+            </TouchableOpacity>
+
+            {/* New Note Button */}
+            <TouchableOpacity
+              style={styles.floatingNewNoteButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                setTapPosition({ x: SCREEN_WIDTH / 2 - 100, y: 200 });
+                setCurrentNote(null);
+                setNoteTitle('');
+                setNoteCategory('feature');
+                setNoteContent('');
+                setModalVisible(true);
+              }}
+            >
+              <Ionicons name="add" size={32} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </Pressable>
       </Animated.View>
 
@@ -975,22 +989,38 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: StatusBar.currentHeight + 16 || 56,
     left: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  floatingNewNoteButton: {
+  floatingActionsContainer: {
     position: 'absolute',
     bottom: 32,
     right: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  floatingImportButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4EC9E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+  },
+  floatingNewNoteButton: {
     width: 64,
     height: 64,
     borderRadius: 32,
