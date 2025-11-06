@@ -302,8 +302,11 @@ export default function WorkspaceScreen({ navigation, route }) {
               });
             });
 
-            // Reset pan value after state update
-            pan.setValue({ x: 0, y: 0 });
+            // Reset pan value AFTER state update completes and React re-renders
+            // This prevents the visual "pop" where the note jumps back then forward
+            requestAnimationFrame(() => {
+              pan.setValue({ x: 0, y: 0 });
+            });
           } else {
             console.log('❌ Short tap - opening edit modal');
             // Short tap (released before long-press activated)
