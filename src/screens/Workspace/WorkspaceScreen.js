@@ -103,7 +103,10 @@ export default function WorkspaceScreen({ navigation, route }) {
 
     const saveNotes = async () => {
       try {
+        console.log('=== SAVING NOTES TO FIRESTORE ===');
+        console.log('Notes being saved:', JSON.stringify(notes, null, 2));
         await updateIdea(ideaId, { notes });
+        console.log('Notes saved successfully');
       } catch (error) {
         console.error('Error saving notes:', error);
         // Optionally show error to user, but don't block UI
@@ -262,13 +265,24 @@ export default function WorkspaceScreen({ navigation, route }) {
             setNotes(prevNotes =>
               prevNotes.map(n => {
                 if (n.id === note.id) {
+                  console.log('=== DRAG RELEASE DEBUG ===');
+                  console.log('Note ID:', note.id);
+                  console.log('Current position from state:', n.position);
+                  console.log('gestureState.dx:', gestureState.dx);
+                  console.log('gestureState.dy:', gestureState.dy);
+
                   // Use current position from state, not stale closure variable
                   const newX = n.position.x + gestureState.dx;
                   const newY = n.position.y + gestureState.dy;
 
+                  console.log('Calculated new position:', { x: newX, y: newY });
+
                   // Validate coordinates to prevent NaN or undefined values
                   const validX = isFinite(newX) ? newX : n.position.x;
                   const validY = isFinite(newY) ? newY : n.position.y;
+
+                  console.log('Final valid position:', { x: validX, y: validY });
+                  console.log('======================');
 
                   return { ...n, position: { x: validX, y: validY } };
                 }
