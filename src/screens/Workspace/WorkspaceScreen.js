@@ -56,7 +56,6 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, re
   return (
     <Animated.View
       key={note.id}
-      {...panResponder.panHandlers}
       style={[
         styles.noteCard,
         {
@@ -71,15 +70,18 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, re
         }
       ]}
     >
-      <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
-        <Text style={styles.categoryBadgeText}>{category?.label}</Text>
+      {/* Draggable content area */}
+      <View {...panResponder.panHandlers} style={styles.noteCardContent}>
+        <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
+          <Text style={styles.categoryBadgeText}>{category?.label}</Text>
+        </View>
+        <Text style={styles.noteCardTitle}>{note.title}</Text>
+        {note.content ? (
+          <Text style={styles.noteCardContentText} numberOfLines={3}>
+            {note.content}
+          </Text>
+        ) : null}
       </View>
-      <Text style={styles.noteCardTitle}>{note.title}</Text>
-      {note.content ? (
-        <Text style={styles.noteCardContent} numberOfLines={3}>
-          {note.content}
-        </Text>
-      ) : null}
 
       {/* Resize Handle */}
       <Animated.View
@@ -1540,6 +1542,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noteCardContent: {
+    flex: 1,
+    paddingBottom: 32,
+  },
+  noteCardContentText: {
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
