@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { getIdea } from '../../services/firestore';
+import { getIdea, updateIdea } from '../../services/firestore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -76,6 +76,10 @@ export default function WorkspaceScreen({ navigation, route }) {
             setBusinessName(ideaData.cards.conceptBranding.name || '');
             setElevatorPitch(ideaData.cards.conceptBranding.elevatorPitch || '');
           }
+          // Load notes from Firestore
+          if (ideaData.notes && Array.isArray(ideaData.notes)) {
+            setNotes(ideaData.notes);
+          }
         } else {
           Alert.alert('Error', 'Idea not found');
           navigation.goBack();
@@ -91,6 +95,25 @@ export default function WorkspaceScreen({ navigation, route }) {
 
     loadIdea();
   }, [ideaId]);
+
+  // Save notes to Firestore whenever they change
+  useEffect(() => {
+    // Skip saving on initial mount and when idea hasn't loaded yet
+    if (!idea || !ideaId) return;
+
+    const saveNotes = async () => {
+      try {
+        await updateIdea(ideaId, { notes });
+      } catch (error) {
+        console.error('Error saving notes:', error);
+        // Optionally show error to user, but don't block UI
+      }
+    };
+
+    // Debounce saves to avoid excessive writes
+    const timeoutId = setTimeout(saveNotes, 500);
+    return () => clearTimeout(timeoutId);
+  }, [notes, ideaId, idea]);
 
   // Format date for display
   const formatDate = (timestamp) => {
