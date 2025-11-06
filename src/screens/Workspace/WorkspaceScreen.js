@@ -33,7 +33,8 @@ const NOTE_CARD_MAX_HEIGHT = 600;
 const CANVAS_WIDTH = SCREEN_WIDTH * 2;
 const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
 const GRID_SPACING = 40;
-const SNAP_THRESHOLD = 12;
+const GRID_SNAP_THRESHOLD = 20; // Larger threshold = less aggressive grid snapping
+const NOTE_SNAP_THRESHOLD = 8; // Smaller threshold = more sensitive note-to-note snapping
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
@@ -345,40 +346,13 @@ export default function WorkspaceScreen({ navigation, route }) {
     const horizontal = [];
     let snappedX = currentX;
     let snappedY = currentY;
+    let snappedToNoteX = false;
+    let snappedToNoteY = false;
 
-    // Grid snapping points (every GRID_SPACING pixels)
-    const gridSnapX = Math.round(currentX / GRID_SPACING) * GRID_SPACING;
-    const gridSnapY = Math.round(currentY / GRID_SPACING) * GRID_SPACING;
-
-    // Check left edge snap to grid
-    if (Math.abs(currentX - gridSnapX) < SNAP_THRESHOLD) {
-      snappedX = gridSnapX;
-      vertical.push(gridSnapX);
-    }
-
-    // Check right edge snap to grid
     const rightEdge = currentX + noteWidth;
-    const gridSnapRight = Math.round(rightEdge / GRID_SPACING) * GRID_SPACING;
-    if (Math.abs(rightEdge - gridSnapRight) < SNAP_THRESHOLD) {
-      snappedX = gridSnapRight - noteWidth;
-      vertical.push(gridSnapRight);
-    }
-
-    // Check top edge snap to grid
-    if (Math.abs(currentY - gridSnapY) < SNAP_THRESHOLD) {
-      snappedY = gridSnapY;
-      horizontal.push(gridSnapY);
-    }
-
-    // Check bottom edge snap to grid
     const bottomEdge = currentY + noteHeight;
-    const gridSnapBottom = Math.round(bottomEdge / GRID_SPACING) * GRID_SPACING;
-    if (Math.abs(bottomEdge - gridSnapBottom) < SNAP_THRESHOLD) {
-      snappedY = gridSnapBottom - noteHeight;
-      horizontal.push(gridSnapBottom);
-    }
 
-    // Snap to other notes
+    // PRIORITY 1: Snap to other notes (most important, tighter threshold)
     notes.forEach(otherNote => {
       if (otherNote.id === noteId) return;
 
@@ -386,41 +360,91 @@ export default function WorkspaceScreen({ navigation, route }) {
       const otherHeight = otherNote.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
       const otherX = otherNote.position.x;
       const otherY = otherNote.position.y;
+      const otherRight = otherX + otherWidth;
+      const otherBottom = otherY + otherHeight;
 
-      // Check vertical alignment (left edges, right edges, centers)
-      if (Math.abs(currentX - otherX) < SNAP_THRESHOLD) {
-        snappedX = otherX;
-        vertical.push(otherX);
-      }
-      if (Math.abs(rightEdge - (otherX + otherWidth)) < SNAP_THRESHOLD) {
-        snappedX = otherX + otherWidth - noteWidth;
-        vertical.push(otherX + otherWidth);
+      // Vertical alignment checks (left edge, right edge)
+      if (!snappedToNoteX) {
+        // Left edge to left edge
+        if (Math.abs(currentX - otherX) < NOTE_SNAP_THRESHOLD) {
+          snappedX = otherX;
+          vertical.push(otherX);
+          snappedToNoteX = true;
+        }
+        // Right edge to right edge
+        else if (Math.abs(rightEdge - otherRight) < NOTE_SNAP_THRESHOLD) {
+          snappedX = otherRight - noteWidth;
+          vertical.push(otherRight);
+          snappedToNoteX = true;
+        }
+        // Left edge to right edge (spacing)
+        else if (Math.abs(currentX - otherRight) < NOTE_SNAP_THRESHOLD) {
+          snappedX = otherRight;
+          vertical.push(otherRight);
+          snappedToNoteX = true;
+        }
+        // Right edge to left edge (spacing)
+        else if (Math.abs(rightEdge - otherX) < NOTE_SNAP_THRESHOLD) {
+          snappedX = otherX - noteWidth;
+          vertical.push(otherX);
+          snappedToNoteX = true;
+        }
       }
 
-      // Check horizontal alignment (top edges, bottom edges, centers)
-      if (Math.abs(currentY - otherY) < SNAP_THRESHOLD) {
-        snappedY = otherY;
-        horizontal.push(otherY);
-      }
-      if (Math.abs(bottomEdge - (otherY + otherHeight)) < SNAP_THRESHOLD) {
-        snappedY = otherY + otherHeight - noteHeight;
-        horizontal.push(otherY + otherHeight);
+      // Horizontal alignment checks (top edge, bottom edge)
+      if (!snappedToNoteY) {
+        // Top edge to top edge
+        if (Math.abs(currentY - otherY) < NOTE_SNAP_THRESHOLD) {
+          snappedY = otherY;
+          horizontal.push(otherY);
+          snappedToNoteY = true;
+        }
+        // Bottom edge to bottom edge
+        else if (Math.abs(bottomEdge - otherBottom) < NOTE_SNAP_THRESHOLD) {
+          snappedY = otherBottom - noteHeight;
+          horizontal.push(otherBottom);
+          snappedToNoteY = true;
+        }
+        // Top edge to bottom edge (spacing)
+        else if (Math.abs(currentY - otherBottom) < NOTE_SNAP_THRESHOLD) {
+          snappedY = otherBottom;
+          horizontal.push(otherBottom);
+          snappedToNoteY = true;
+        }
+        // Bottom edge to top edge (spacing)
+        else if (Math.abs(bottomEdge - otherY) < NOTE_SNAP_THRESHOLD) {
+          snappedY = otherY - noteHeight;
+          horizontal.push(otherY);
+          snappedToNoteY = true;
+        }
       }
     });
 
-    // Canvas center snapping
-    const canvasCenterX = CANVAS_WIDTH / 2;
-    const canvasCenterY = CANVAS_HEIGHT / 2;
-    const noteCenterX = currentX + noteWidth / 2;
-    const noteCenterY = currentY + noteHeight / 2;
+    // PRIORITY 2: Grid snapping (only if not already snapped to notes, looser threshold)
+    if (!snappedToNoteX) {
+      const gridSnapX = Math.round(currentX / GRID_SPACING) * GRID_SPACING;
+      const gridSnapRight = Math.round(rightEdge / GRID_SPACING) * GRID_SPACING;
 
-    if (Math.abs(noteCenterX - canvasCenterX) < SNAP_THRESHOLD) {
-      snappedX = canvasCenterX - noteWidth / 2;
-      vertical.push(canvasCenterX);
+      if (Math.abs(currentX - gridSnapX) < GRID_SNAP_THRESHOLD) {
+        snappedX = gridSnapX;
+        vertical.push(gridSnapX);
+      } else if (Math.abs(rightEdge - gridSnapRight) < GRID_SNAP_THRESHOLD) {
+        snappedX = gridSnapRight - noteWidth;
+        vertical.push(gridSnapRight);
+      }
     }
-    if (Math.abs(noteCenterY - canvasCenterY) < SNAP_THRESHOLD) {
-      snappedY = canvasCenterY - noteHeight / 2;
-      horizontal.push(canvasCenterY);
+
+    if (!snappedToNoteY) {
+      const gridSnapY = Math.round(currentY / GRID_SPACING) * GRID_SPACING;
+      const gridSnapBottom = Math.round(bottomEdge / GRID_SPACING) * GRID_SPACING;
+
+      if (Math.abs(currentY - gridSnapY) < GRID_SNAP_THRESHOLD) {
+        snappedY = gridSnapY;
+        horizontal.push(gridSnapY);
+      } else if (Math.abs(bottomEdge - gridSnapBottom) < GRID_SNAP_THRESHOLD) {
+        snappedY = gridSnapBottom - noteHeight;
+        horizontal.push(gridSnapBottom);
+      }
     }
 
     return {
