@@ -210,12 +210,16 @@ export default function WorkspaceScreen({ navigation, route }) {
         onMoveShouldSetPanResponderCapture: () => isDragging,
 
         onPanResponderGrant: (evt, gestureState) => {
+          // Reset pan animation to prevent stale values
+          pan.setValue({ x: 0, y: 0 });
+
           // Start long press timer
           longPressTimeout = setTimeout(() => {
             isDragging = true;
             setDraggingNoteId(note.id);
-            pan.setValue({ x: 0, y: 0 });
-          }, 400); // 400ms long press
+            // Don't reset pan here - let it continue from current gesture position
+            // This prevents the "glitch" when drag activates mid-gesture
+          }, 300); // Reduced to 300ms for more responsive feel
         },
 
         onPanResponderMove: Animated.event(
@@ -230,23 +234,32 @@ export default function WorkspaceScreen({ navigation, route }) {
             isDragging = false;
             setDraggingNoteId(null);
 
-            // Calculate new position
-            const newX = note.position.x + gestureState.dx;
-            const newY = note.position.y + gestureState.dy;
-
-            // Reset pan value
-            pan.setValue({ x: 0, y: 0 });
-
             // Update note position in state
+            // IMPORTANT: Look up current note position from state, not from closure
             setNotes(prevNotes =>
-              prevNotes.map(n =>
-                n.id === note.id
-                  ? { ...n, position: { x: newX, y: newY } }
-                  : n
-              )
+              prevNotes.map(n => {
+                if (n.id === note.id) {
+                  // Use current position from state, not stale closure variable
+                  const newX = n.position.x + gestureState.dx;
+                  const newY = n.position.y + gestureState.dy;
+
+                  // Validate coordinates to prevent NaN or undefined values
+                  const validX = isFinite(newX) ? newX : n.position.x;
+                  const validY = isFinite(newY) ? newY : n.position.y;
+
+                  return { ...n, position: { x: validX, y: validY } };
+                }
+                return n;
+              })
             );
+
+            // Reset pan value after state update
+            pan.setValue({ x: 0, y: 0 });
           } else {
-            // Short tap - open edit modal
+            // Short tap (released before long-press activated)
+            // Reset pan value to prevent visual artifacts
+            pan.setValue({ x: 0, y: 0 });
+            // Open edit modal
             handleEditNote(note);
           }
         },
@@ -256,8 +269,9 @@ export default function WorkspaceScreen({ navigation, route }) {
           if (isDragging) {
             isDragging = false;
             setDraggingNoteId(null);
-            pan.setValue({ x: 0, y: 0 });
           }
+          // Always reset pan value to prevent visual artifacts
+          pan.setValue({ x: 0, y: 0 });
         },
       });
     }
