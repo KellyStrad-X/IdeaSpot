@@ -140,7 +140,6 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [newCanvasName, setNewCanvasName] = useState('');
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   const canvasZoomAnim = useRef(new Animated.Value(1)).current;
-  const canvasLabelScaleAnim = useRef(new Animated.Value(1)).current;
 
   // Notes canvas state
   const [notes, setNotes] = useState([]);
@@ -329,18 +328,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const handleCarouselScroll = (event) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SCREEN_WIDTH);
-
-    if (index !== currentCarouselIndex) {
-      // Trigger pop animation when switching canvases
-      canvasLabelScaleAnim.setValue(0.8);
-      Animated.spring(canvasLabelScaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }).start();
-      setCurrentCarouselIndex(index);
-    }
+    setCurrentCarouselIndex(index);
   };
 
   const handleCreateCanvas = async () => {
@@ -1108,30 +1096,19 @@ export default function WorkspaceScreen({ navigation, route }) {
       >
         {canvasPickerVisible ? (
           /* Canvas Carousel View - Show all canvases horizontally */
-          <View style={{ flex: 1 }}>
-            {/* Canvas Name Header - Shows current canvas info */}
-            <Animated.View style={[styles.carouselHeader, { transform: [{ scale: canvasLabelScaleAnim }] }]}>
-              <Text style={styles.carouselCanvasName}>
-                {currentCarouselIndex < canvases.length ? canvases[currentCarouselIndex]?.name : 'New Canvas'}
-              </Text>
-              <Text style={styles.carouselNoteCount}>
-                {currentCarouselIndex < canvases.length ? `${canvases[currentCarouselIndex]?.notes?.length || 0} notes` : ''}
-              </Text>
-            </Animated.View>
-
-            <Animated.View style={{ flex: 1, transform: [{ scale: canvasZoomAnim }] }}>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                style={styles.canvasCarousel}
-                contentContainerStyle={styles.canvasCarouselContent}
-                decelerationRate="fast"
-                snapToInterval={SCREEN_WIDTH}
-                snapToAlignment="center"
-                onScroll={handleCarouselScroll}
-                scrollEventThrottle={16}
-              >
+          <Animated.View style={{ flex: 1, transform: [{ scale: canvasZoomAnim }] }}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.canvasCarousel}
+              contentContainerStyle={styles.canvasCarouselContent}
+              decelerationRate="fast"
+              snapToInterval={SCREEN_WIDTH}
+              snapToAlignment="center"
+              onScroll={handleCarouselScroll}
+              scrollEventThrottle={16}
+            >
             {canvases.map((canvas) => {
               const isActive = canvas.id === currentCanvasId;
               return (
@@ -1143,7 +1120,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                   style={styles.carouselCanvasWrapper}
                 >
                   <View style={styles.carouselCanvas}>
-                    <View style={[styles.notesCanvas, styles.carouselNotesCanvas]}>
+                    <View style={styles.notesCanvas}>
                       {/* Grid Background */}
                       <View style={styles.gridBackground}>
                         {gridDots.map(dot => (
@@ -1189,6 +1166,12 @@ export default function WorkspaceScreen({ navigation, route }) {
                           </View>
                         );
                       })}
+
+                      {/* Canvas Name Label */}
+                      <View style={styles.canvasNameLabel}>
+                        <Text style={styles.canvasNameText}>{canvas.name}</Text>
+                        <Text style={styles.canvasNoteCountText}>{canvas.notes?.length || 0} notes</Text>
+                      </View>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1210,22 +1193,21 @@ export default function WorkspaceScreen({ navigation, route }) {
                 <Text style={styles.addNewCanvasText}>Create New Canvas</Text>
               </View>
             </TouchableOpacity>
-              </ScrollView>
+          </ScrollView>
 
-              {/* Pagination Dots */}
-              <View style={styles.paginationContainer}>
-                {[...canvases, { id: 'add-new' }].map((canvas, index) => (
-                  <View
-                    key={canvas.id}
-                    style={[
-                      styles.paginationDot,
-                      index === currentCarouselIndex && styles.paginationDotActive
-                    ]}
-                  />
-                ))}
-              </View>
-            </Animated.View>
+          {/* Pagination Dots */}
+          <View style={styles.paginationContainer}>
+            {[...canvases, { id: 'add-new' }].map((canvas, index) => (
+              <View
+                key={canvas.id}
+                style={[
+                  styles.paginationDot,
+                  index === currentCarouselIndex && styles.paginationDotActive
+                ]}
+              />
+            ))}
           </View>
+        </Animated.View>
         ) : (
           /* Single Active Canvas View - Full zoom */
           <View style={styles.notesCanvas}>
@@ -1839,9 +1821,6 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  carouselNotesCanvas: {
-    transform: [{ scale: 0.44 }],
-  },
   gridBackground: {
     position: 'absolute',
     top: 0,
@@ -2271,24 +2250,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '500',
   },
-  carouselHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    paddingTop: StatusBar.currentHeight + 16 || 56,
-  },
-  carouselCanvasName: {
-    color: Colors.textPrimary,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  carouselNoteCount: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '500',
-  },
   canvasCarousel: {
     flex: 1,
   },
@@ -2297,13 +2258,13 @@ const styles = StyleSheet.create({
   },
   carouselCanvasWrapper: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.75,
+    height: SCREEN_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
   carouselCanvas: {
-    width: SCREEN_WIDTH * 0.88,
-    height: SCREEN_HEIGHT * 0.68,
+    width: SCREEN_WIDTH * 0.95,
+    height: SCREEN_HEIGHT * 0.85,
     borderRadius: 20,
     borderWidth: 2,
     borderColor: '#555555',
@@ -2348,5 +2309,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginTop: 16,
+  },
+  canvasNameLabel: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    zIndex: 10000,
+  },
+  canvasNameText: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  canvasNoteCountText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    marginTop: 2,
   },
 });
