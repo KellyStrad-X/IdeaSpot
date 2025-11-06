@@ -24,8 +24,12 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const DOUBLE_TAP_DELAY = 220;
 const DRAG_ACTIVATION_THRESHOLD = 8;
-const NOTE_CARD_WIDTH = 200;
-const NOTE_CARD_MIN_HEIGHT = 140;
+const NOTE_CARD_DEFAULT_WIDTH = 200;
+const NOTE_CARD_DEFAULT_HEIGHT = 140;
+const NOTE_CARD_MIN_WIDTH = 150;
+const NOTE_CARD_MIN_HEIGHT = 100;
+const NOTE_CARD_MAX_WIDTH = 400;
+const NOTE_CARD_MAX_HEIGHT = 600;
 const CANVAS_WIDTH = SCREEN_WIDTH * 2;
 const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
 const GRID_SPACING = 40;
@@ -37,7 +41,7 @@ const NOTE_CATEGORIES = [
 ];
 
 // Memoized NoteCard component to prevent unnecessary re-renders
-const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) => {
+const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, resizePanResponder, isResizing }) => {
   const animatedTransform = [];
   if (isDragging && pan) {
     animatedTransform.push({ translateX: pan.x }, { translateY: pan.y });
@@ -45,6 +49,9 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) 
   if (isDragging) {
     animatedTransform.push({ scale: 1.1 });
   }
+
+  const noteWidth = note.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
+  const noteHeight = note.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
 
   return (
     <Animated.View
@@ -55,9 +62,11 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) 
         {
           left: note.position.x,
           top: note.position.y,
+          width: noteWidth,
+          minHeight: noteHeight,
           borderLeftColor: category?.color || Colors.accent1,
           transform: animatedTransform,
-          zIndex: isDragging ? 1000 : 1,
+          zIndex: isDragging || isResizing ? 1000 : 1,
           opacity: isDragging ? 0.9 : 1,
         }
       ]}
@@ -71,6 +80,19 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) 
           {note.content}
         </Text>
       ) : null}
+
+      {/* Resize Handle */}
+      <Animated.View
+        {...resizePanResponder.panHandlers}
+        style={[
+          styles.resizeHandle,
+          {
+            opacity: isResizing ? 1 : 0.6,
+          }
+        ]}
+      >
+        <Ionicons name="resize" size={16} color={Colors.textSecondary} />
+      </Animated.View>
     </Animated.View>
   );
 }, (prevProps, nextProps) => {
@@ -81,7 +103,10 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) 
     prevProps.note.position.y === nextProps.note.position.y &&
     prevProps.note.title === nextProps.note.title &&
     prevProps.note.content === nextProps.note.content &&
-    prevProps.isDragging === nextProps.isDragging
+    prevProps.isDragging === nextProps.isDragging &&
+    prevProps.isResizing === nextProps.isResizing &&
+    prevProps.note.dimensions?.width === nextProps.note.dimensions?.width &&
+    prevProps.note.dimensions?.height === nextProps.note.dimensions?.height
   );
 });
 
@@ -104,8 +129,10 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [noteContent, setNoteContent] = useState('');
   const [tapPosition, setTapPosition] = useState({ x: 0, y: 0 });
   const [draggingNoteId, setDraggingNoteId] = useState(null);
+  const [resizingNoteId, setResizingNoteId] = useState(null);
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
+  const noteResizePanResponders = useRef({}).current;
   const justFinishedDrag = useRef(false);
 
   const gridDots = useMemo(() => {
@@ -251,6 +278,10 @@ export default function WorkspaceScreen({ navigation, route }) {
       category: noteCategory,
       content: noteContent,
       position: currentNote?.position || tapPosition,
+      dimensions: currentNote?.dimensions || {
+        width: NOTE_CARD_DEFAULT_WIDTH,
+        height: NOTE_CARD_DEFAULT_HEIGHT,
+      },
       categoryData,
     };
 
@@ -470,6 +501,61 @@ export default function WorkspaceScreen({ navigation, route }) {
     }
 
     return notePanResponders[note.id];
+  };
+
+  // Create resize PanResponder for each note
+  const getNoteResizePanResponder = (note) => {
+    if (noteResizePanResponders[note.id]) {
+      return noteResizePanResponders[note.id];
+    }
+
+    let initialWidth = 0;
+    let initialHeight = 0;
+
+    noteResizePanResponders[note.id] = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+
+      onPanResponderGrant: () => {
+        setResizingNoteId(note.id);
+        // Store initial dimensions
+        initialWidth = note.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
+        initialHeight = note.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
+      },
+
+      onPanResponderMove: (evt, gestureState) => {
+        // Calculate new dimensions based on drag delta from initial size
+        const newWidth = Math.max(NOTE_CARD_MIN_WIDTH, Math.min(NOTE_CARD_MAX_WIDTH, initialWidth + gestureState.dx));
+        const newHeight = Math.max(NOTE_CARD_MIN_HEIGHT, Math.min(NOTE_CARD_MAX_HEIGHT, initialHeight + gestureState.dy));
+
+        // Update note dimensions in real-time
+        setNotes(prevNotes => prevNotes.map(n => {
+          if (n.id === note.id) {
+            return {
+              ...n,
+              dimensions: {
+                width: newWidth,
+                height: newHeight,
+              }
+            };
+          }
+          return n;
+        }));
+      },
+
+      onPanResponderRelease: () => {
+        setResizingNoteId(null);
+        justFinishedDrag.current = true; // Trigger save
+      },
+
+      onPanResponderTerminate: () => {
+        setResizingNoteId(null);
+      },
+    });
+
+    return noteResizePanResponders[note.id];
   };
 
   const renderSummaryCard = () => (
@@ -841,8 +927,10 @@ export default function WorkspaceScreen({ navigation, route }) {
           {notes.map(note => {
             const category = NOTE_CATEGORIES.find(c => c.id === note.category);
             const panResponder = getNotePanResponder(note);
+            const resizePanResponder = getNoteResizePanResponder(note);
             const pan = notePanValues[note.id];
             const isDragging = draggingNoteId === note.id;
+            const isResizing = resizingNoteId === note.id;
 
             return (
               <NoteCard
@@ -852,6 +940,8 @@ export default function WorkspaceScreen({ navigation, route }) {
                 panResponder={panResponder}
                 pan={pan}
                 isDragging={isDragging}
+                resizePanResponder={resizePanResponder}
+                isResizing={isResizing}
               />
             );
           })}
@@ -882,7 +972,7 @@ export default function WorkspaceScreen({ navigation, route }) {
               style={styles.floatingNewNoteButton}
               onPress={() => {
                 setTapPosition({
-                  x: SCREEN_WIDTH / 2 - NOTE_CARD_WIDTH / 2,
+                  x: SCREEN_WIDTH / 2 - NOTE_CARD_DEFAULT_WIDTH / 2,
                   y: 200,
                 });
                 setCurrentNote(null);
@@ -1433,7 +1523,6 @@ const styles = StyleSheet.create({
   },
   noteCard: {
     position: 'absolute',
-    width: NOTE_CARD_WIDTH,
     backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 12,
@@ -1454,6 +1543,17 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  resizeHandle: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    cursor: 'nwse-resize',
   },
   categoryBadgeText: {
     color: '#fff',
