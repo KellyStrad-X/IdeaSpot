@@ -31,6 +31,14 @@ const NOTE_CATEGORIES = [
 
 // Memoized NoteCard component to prevent unnecessary re-renders
 const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) => {
+  const animatedTransform = [];
+  if (isDragging && pan) {
+    animatedTransform.push({ translateX: pan.x }, { translateY: pan.y });
+  }
+  if (isDragging) {
+    animatedTransform.push({ scale: 1.1 });
+  }
+
   return (
     <Animated.View
       key={note.id}
@@ -41,11 +49,7 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) 
           left: note.position.x,
           top: note.position.y,
           borderLeftColor: category?.color || Colors.accent1,
-          transform: pan ? [
-            { translateX: pan.x },
-            { translateY: pan.y },
-            { scale: isDragging ? 1.1 : 1 },
-          ] : [],
+          transform: animatedTransform,
           zIndex: isDragging ? 1000 : 1,
           opacity: isDragging ? 0.9 : 1,
         }
