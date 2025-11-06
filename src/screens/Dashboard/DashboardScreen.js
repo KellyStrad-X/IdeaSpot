@@ -207,6 +207,7 @@ export default function DashboardScreen({ navigation }) {
     // Get preview text from summary card or original input
     const preview = item.cards?.summary?.problem || item.originalInput || 'No description yet';
     const isAnalyzing = item.analyzing === true;
+    const businessName = item.cards?.conceptBranding?.name;
 
     return (
       <Swipeable
@@ -239,12 +240,17 @@ export default function DashboardScreen({ navigation }) {
               {preview}
             </Text>
             <View style={styles.cardFooter}>
-              <View style={styles.tags}>
-                {item.tags && item.tags.slice(0, 3).map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
+              <View style={styles.tagsRow}>
+                <View style={styles.tags}>
+                  {item.tags && item.tags.slice(0, 3).map((tag, index) => (
+                    <View key={index} style={styles.tag}>
+                      <Text style={styles.tagText}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+                {businessName && (
+                  <Text style={styles.businessName}>{businessName}</Text>
+                )}
               </View>
               <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
             </View>
@@ -429,9 +435,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  tagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   tags: {
     flexDirection: 'row',
-    flex: 1,
+    flexWrap: 'wrap',
+  },
+  businessName: {
+    color: Colors.accent4,
+    fontSize: 17,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    marginLeft: 4,
   },
   tag: {
     backgroundColor: Colors.surfaceLight,

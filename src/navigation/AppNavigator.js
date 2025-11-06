@@ -147,8 +147,15 @@ function DashboardStack() {
         name="Workspace"
         component={WorkspaceScreen}
         options={{
-          title: 'Idea Workspace',
+          title: '',
           headerShown: true,
+          headerRight: () => (
+            <View style={{ marginRight: 16 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 18, fontWeight: '600' }}>
+                IDEA workspace
+              </Text>
+            </View>
+          ),
         }}
       />
     </Stack.Navigator>
