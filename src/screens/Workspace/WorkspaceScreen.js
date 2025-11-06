@@ -33,9 +33,6 @@ const NOTE_CARD_MAX_HEIGHT = 600;
 const CANVAS_WIDTH = SCREEN_WIDTH * 2;
 const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
 const GRID_SPACING = 40;
-const GRID_SNAP_THRESHOLD = 20; // Larger threshold = less aggressive grid snapping
-const NOTE_SNAP_THRESHOLD = 8; // Smaller threshold = more sensitive note-to-note snapping
-const RESIZE_SNAP_THRESHOLD = 15; // Threshold for snapping dimensions to grid during resize
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
@@ -137,7 +134,6 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [tapPosition, setTapPosition] = useState({ x: 0, y: 0 });
   const [draggingNoteId, setDraggingNoteId] = useState(null);
   const [resizingNoteId, setResizingNoteId] = useState(null);
-  const [guideLines, setGuideLines] = useState({ vertical: [], horizontal: [] });
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
   const noteResizePanResponders = useRef({}).current;
@@ -341,123 +337,6 @@ export default function WorkspaceScreen({ navigation, route }) {
     setModalVisible(true);
   };
 
-  // Calculate snap points and guide lines
-  const calculateSnapping = (noteId, currentX, currentY, noteWidth, noteHeight) => {
-    const vertical = [];
-    const horizontal = [];
-    let snappedX = currentX;
-    let snappedY = currentY;
-    let snappedToNoteX = false;
-    let snappedToNoteY = false;
-
-    const rightEdge = currentX + noteWidth;
-    const bottomEdge = currentY + noteHeight;
-
-    // PRIORITY 1: Snap to other notes (most important, tighter threshold)
-    notes.forEach(otherNote => {
-      if (otherNote.id === noteId) return;
-
-      const otherWidth = otherNote.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
-      const otherHeight = otherNote.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
-      const otherX = otherNote.position.x;
-      const otherY = otherNote.position.y;
-      const otherRight = otherX + otherWidth;
-      const otherBottom = otherY + otherHeight;
-
-      // Vertical alignment checks (left edge, right edge)
-      if (!snappedToNoteX) {
-        // Left edge to left edge
-        if (Math.abs(currentX - otherX) < NOTE_SNAP_THRESHOLD) {
-          snappedX = otherX;
-          vertical.push(otherX);
-          snappedToNoteX = true;
-        }
-        // Right edge to right edge
-        else if (Math.abs(rightEdge - otherRight) < NOTE_SNAP_THRESHOLD) {
-          snappedX = otherRight - noteWidth;
-          vertical.push(otherRight);
-          snappedToNoteX = true;
-        }
-        // Left edge to right edge (spacing)
-        else if (Math.abs(currentX - otherRight) < NOTE_SNAP_THRESHOLD) {
-          snappedX = otherRight;
-          vertical.push(otherRight);
-          snappedToNoteX = true;
-        }
-        // Right edge to left edge (spacing)
-        else if (Math.abs(rightEdge - otherX) < NOTE_SNAP_THRESHOLD) {
-          snappedX = otherX - noteWidth;
-          vertical.push(otherX);
-          snappedToNoteX = true;
-        }
-      }
-
-      // Horizontal alignment checks (top edge, bottom edge)
-      if (!snappedToNoteY) {
-        // Top edge to top edge
-        if (Math.abs(currentY - otherY) < NOTE_SNAP_THRESHOLD) {
-          snappedY = otherY;
-          horizontal.push(otherY);
-          snappedToNoteY = true;
-        }
-        // Bottom edge to bottom edge
-        else if (Math.abs(bottomEdge - otherBottom) < NOTE_SNAP_THRESHOLD) {
-          snappedY = otherBottom - noteHeight;
-          horizontal.push(otherBottom);
-          snappedToNoteY = true;
-        }
-        // Top edge to bottom edge (spacing)
-        else if (Math.abs(currentY - otherBottom) < NOTE_SNAP_THRESHOLD) {
-          snappedY = otherBottom;
-          horizontal.push(otherBottom);
-          snappedToNoteY = true;
-        }
-        // Bottom edge to top edge (spacing)
-        else if (Math.abs(bottomEdge - otherY) < NOTE_SNAP_THRESHOLD) {
-          snappedY = otherY - noteHeight;
-          horizontal.push(otherY);
-          snappedToNoteY = true;
-        }
-      }
-    });
-
-    // PRIORITY 2: Grid snapping (only if not already snapped to notes, looser threshold)
-    if (!snappedToNoteX) {
-      const gridSnapX = Math.round(currentX / GRID_SPACING) * GRID_SPACING;
-      const gridSnapRight = Math.round(rightEdge / GRID_SPACING) * GRID_SPACING;
-
-      if (Math.abs(currentX - gridSnapX) < GRID_SNAP_THRESHOLD) {
-        snappedX = gridSnapX;
-        vertical.push(gridSnapX);
-      } else if (Math.abs(rightEdge - gridSnapRight) < GRID_SNAP_THRESHOLD) {
-        snappedX = gridSnapRight - noteWidth;
-        vertical.push(gridSnapRight);
-      }
-    }
-
-    if (!snappedToNoteY) {
-      const gridSnapY = Math.round(currentY / GRID_SPACING) * GRID_SPACING;
-      const gridSnapBottom = Math.round(bottomEdge / GRID_SPACING) * GRID_SPACING;
-
-      if (Math.abs(currentY - gridSnapY) < GRID_SNAP_THRESHOLD) {
-        snappedY = gridSnapY;
-        horizontal.push(gridSnapY);
-      } else if (Math.abs(bottomEdge - gridSnapBottom) < GRID_SNAP_THRESHOLD) {
-        snappedY = gridSnapBottom - noteHeight;
-        horizontal.push(gridSnapBottom);
-      }
-    }
-
-    return {
-      x: snappedX,
-      y: snappedY,
-      guides: {
-        vertical: [...new Set(vertical)], // Remove duplicates
-        horizontal: [...new Set(horizontal)],
-      },
-    };
-  };
-
   const getNotePanResponder = (note) => {
     // Create pan value if it doesn't exist
     if (!notePanValues[note.id]) {
@@ -532,7 +411,6 @@ export default function WorkspaceScreen({ navigation, route }) {
                 if (isDragging) {
                   isDragging = false;
                   setDraggingNoteId(null);
-                  setGuideLines({ vertical: [], horizontal: [] });
                 }
                 pan.setValue({ x: 0, y: 0 });
                 lastTapTimestamp = 0;
@@ -548,21 +426,6 @@ export default function WorkspaceScreen({ navigation, route }) {
                   }
                   activateDrag();
                 }
-              } else {
-                // Apply snapping while dragging
-                const noteWidth = note.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
-                const noteHeight = note.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
-                const rawX = note.position.x + gesture.dx;
-                const rawY = note.position.y + gesture.dy;
-
-                const snapResult = calculateSnapping(note.id, rawX, rawY, noteWidth, noteHeight);
-
-                // Apply snapped deltas
-                const snappedDx = snapResult.x - note.position.x;
-                const snappedDy = snapResult.y - note.position.y;
-
-                pan.setValue({ x: snappedDx, y: snappedDy });
-                setGuideLines(snapResult.guides);
               }
             },
           }
@@ -577,7 +440,6 @@ export default function WorkspaceScreen({ navigation, route }) {
           if (isDragging) {
             isDragging = false;
             setDraggingNoteId(null);
-            setGuideLines({ vertical: [], horizontal: [] }); // Clear guide lines
             justFinishedDrag.current = true; // Mark that we just finished dragging
 
             // Get the current animated values (these are the actual drag deltas)
@@ -674,28 +536,9 @@ export default function WorkspaceScreen({ navigation, route }) {
       },
 
       onPanResponderMove: (evt, gestureState) => {
-        // Calculate raw new dimensions
-        let rawWidth = initialWidth + gestureState.dx;
-        let rawHeight = initialHeight + gestureState.dy;
-
-        // Snap to grid multiples
-        const nearestGridWidth = Math.round(rawWidth / GRID_SPACING) * GRID_SPACING;
-        const nearestGridHeight = Math.round(rawHeight / GRID_SPACING) * GRID_SPACING;
-
-        let snappedWidth = rawWidth;
-        let snappedHeight = rawHeight;
-
-        // Apply snapping if within threshold
-        if (Math.abs(rawWidth - nearestGridWidth) < RESIZE_SNAP_THRESHOLD) {
-          snappedWidth = nearestGridWidth;
-        }
-        if (Math.abs(rawHeight - nearestGridHeight) < RESIZE_SNAP_THRESHOLD) {
-          snappedHeight = nearestGridHeight;
-        }
-
-        // Apply min/max constraints
-        const newWidth = Math.max(NOTE_CARD_MIN_WIDTH, Math.min(NOTE_CARD_MAX_WIDTH, snappedWidth));
-        const newHeight = Math.max(NOTE_CARD_MIN_HEIGHT, Math.min(NOTE_CARD_MAX_HEIGHT, snappedHeight));
+        // Calculate new dimensions based on drag delta from initial size
+        const newWidth = Math.max(NOTE_CARD_MIN_WIDTH, Math.min(NOTE_CARD_MAX_WIDTH, initialWidth + gestureState.dx));
+        const newHeight = Math.max(NOTE_CARD_MIN_HEIGHT, Math.min(NOTE_CARD_MAX_HEIGHT, initialHeight + gestureState.dy));
 
         // Update note dimensions in real-time
         setNotes(prevNotes => prevNotes.map(n => {
@@ -1112,28 +955,6 @@ export default function WorkspaceScreen({ navigation, route }) {
               />
             );
           })}
-
-          {/* Smart Guide Lines */}
-          {guideLines.vertical.map((x, index) => (
-            <View
-              key={`v-${index}`}
-              style={[
-                styles.guideLine,
-                styles.guideLineVertical,
-                { left: x }
-              ]}
-            />
-          ))}
-          {guideLines.horizontal.map((y, index) => (
-            <View
-              key={`h-${index}`}
-              style={[
-                styles.guideLine,
-                styles.guideLineHorizontal,
-                { top: y }
-              ]}
-            />
-          ))}
 
           {/* Floating Close Button */}
           <TouchableOpacity
@@ -1758,23 +1579,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     alignSelf: 'flex-start',
-  },
-  guideLine: {
-    position: 'absolute',
-    backgroundColor: '#ffffff',
-    opacity: 0.4,
-    pointerEvents: 'none',
-    zIndex: 500,
-  },
-  guideLineVertical: {
-    width: 1,
-    height: CANVAS_HEIGHT,
-    top: 0,
-  },
-  guideLineHorizontal: {
-    height: 1,
-    width: CANVAS_WIDTH,
-    left: 0,
   },
   categoryBadgeText: {
     color: '#fff',
