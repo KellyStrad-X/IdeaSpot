@@ -78,6 +78,7 @@ export default function WorkspaceScreen({ navigation, route }) {
           }
           // Load notes from Firestore
           if (ideaData.notes && Array.isArray(ideaData.notes)) {
+            console.log('📥 LOADING NOTES FROM FIRESTORE:', ideaData.notes);
             setNotes(ideaData.notes);
           }
         } else {
@@ -236,11 +237,13 @@ export default function WorkspaceScreen({ navigation, route }) {
         onMoveShouldSetPanResponderCapture: () => isDragging,
 
         onPanResponderGrant: (evt, gestureState) => {
+          console.log('👆 TOUCH STARTED on note:', note.id);
           // Reset pan animation to prevent stale values
           pan.setValue({ x: 0, y: 0 });
 
           // Start long press timer
           longPressTimeout = setTimeout(() => {
+            console.log('🔥 DRAG ACTIVATED for note:', note.id);
             isDragging = true;
             setDraggingNoteId(note.id);
             // Don't reset pan here - let it continue from current gesture position
@@ -254,16 +257,19 @@ export default function WorkspaceScreen({ navigation, route }) {
         ),
 
         onPanResponderRelease: (evt, gestureState) => {
+          console.log('🖐️ TOUCH RELEASED, isDragging:', isDragging);
           clearTimeout(longPressTimeout);
 
           if (isDragging) {
+            console.log('✅ Processing drag release...');
             isDragging = false;
             setDraggingNoteId(null);
 
             // Update note position in state
             // IMPORTANT: Look up current note position from state, not from closure
-            setNotes(prevNotes =>
-              prevNotes.map(n => {
+            setNotes(prevNotes => {
+              console.log('📝 Current notes state:', prevNotes);
+              return prevNotes.map(n => {
                 if (n.id === note.id) {
                   console.log('=== DRAG RELEASE DEBUG ===');
                   console.log('Note ID:', note.id);
@@ -287,12 +293,13 @@ export default function WorkspaceScreen({ navigation, route }) {
                   return { ...n, position: { x: validX, y: validY } };
                 }
                 return n;
-              })
-            );
+              });
+            });
 
             // Reset pan value after state update
             pan.setValue({ x: 0, y: 0 });
           } else {
+            console.log('❌ Short tap - opening edit modal');
             // Short tap (released before long-press activated)
             // Reset pan value to prevent visual artifacts
             pan.setValue({ x: 0, y: 0 });
