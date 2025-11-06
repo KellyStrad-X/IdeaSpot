@@ -15,6 +15,7 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -46,6 +47,9 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [noteCategory, setNoteCategory] = useState('feature');
   const [noteContent, setNoteContent] = useState('');
   const [tapPosition, setTapPosition] = useState({ x: 0, y: 0 });
+  const [draggingNoteId, setDraggingNoteId] = useState(null);
+  const notePanValues = useRef({}).current;
+  const notePanResponders = useRef({}).current;
 
   // Category-specific fields
   const [featurePriority, setFeaturePriority] = useState('medium');
@@ -195,6 +199,78 @@ export default function WorkspaceScreen({ navigation, route }) {
     }
 
     setModalVisible(true);
+  };
+
+  const getNotePanResponder = (note) => {
+    // Create pan value if it doesn't exist
+    if (!notePanValues[note.id]) {
+      notePanValues[note.id] = new Animated.ValueXY({ x: 0, y: 0 });
+    }
+
+    // Create pan responder if it doesn't exist
+    if (!notePanResponders[note.id]) {
+      let longPressTimeout = null;
+      let isDragging = false;
+      const pan = notePanValues[note.id];
+
+      notePanResponders[note.id] = PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: () => isDragging,
+
+        onPanResponderGrant: (evt, gestureState) => {
+          // Start long press timer
+          longPressTimeout = setTimeout(() => {
+            isDragging = true;
+            setDraggingNoteId(note.id);
+            pan.setValue({ x: 0, y: 0 });
+          }, 500); // 500ms long press
+        },
+
+        onPanResponderMove: Animated.event(
+          [null, { dx: pan.x, dy: pan.y }],
+          { useNativeDriver: false }
+        ),
+
+        onPanResponderRelease: (evt, gestureState) => {
+          clearTimeout(longPressTimeout);
+
+          if (isDragging) {
+            isDragging = false;
+            setDraggingNoteId(null);
+
+            // Calculate new position
+            const newX = note.position.x + gestureState.dx;
+            const newY = note.position.y + gestureState.dy;
+
+            // Reset pan value
+            pan.setValue({ x: 0, y: 0 });
+
+            // Update note position in state
+            setNotes(prevNotes =>
+              prevNotes.map(n =>
+                n.id === note.id
+                  ? { ...n, position: { x: newX, y: newY } }
+                  : n
+              )
+            );
+          } else {
+            // Short tap - open edit modal
+            handleEditNote(note);
+          }
+        },
+
+        onPanResponderTerminate: () => {
+          clearTimeout(longPressTimeout);
+          if (isDragging) {
+            isDragging = false;
+            setDraggingNoteId(null);
+            pan.setValue({ x: 0, y: 0 });
+          }
+        },
+      });
+    }
+
+    return notePanResponders[note.id];
   };
 
   const renderSummaryCard = () => (
@@ -571,18 +647,29 @@ export default function WorkspaceScreen({ navigation, route }) {
           {/* Render notes */}
           {notes.map(note => {
             const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+            const panResponder = getNotePanResponder(note);
+            const pan = notePanValues[note.id];
+            const isDragging = draggingNoteId === note.id;
+
             return (
-              <Pressable
+              <Animated.View
                 key={note.id}
+                {...panResponder.panHandlers}
                 style={[
                   styles.noteCard,
                   {
                     left: note.position.x,
                     top: note.position.y,
                     borderLeftColor: category?.color || Colors.accent1,
+                    transform: pan ? [
+                      { translateX: pan.x },
+                      { translateY: pan.y },
+                      { scale: isDragging ? 1.1 : 1 },
+                    ] : [],
+                    zIndex: isDragging ? 1000 : 1,
+                    opacity: isDragging ? 0.9 : 1,
                   }
                 ]}
-                onPress={() => handleEditNote(note)}
               >
                 <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
                   <Text style={styles.categoryBadgeText}>{category?.label}</Text>
@@ -593,7 +680,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                     {note.content}
                   </Text>
                 ) : null}
-              </Pressable>
+              </Animated.View>
             );
           })}
 
