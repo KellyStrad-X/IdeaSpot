@@ -33,6 +33,7 @@ const NOTE_CARD_MAX_HEIGHT = 600;
 const CANVAS_WIDTH = SCREEN_WIDTH * 2;
 const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
 const GRID_SPACING = 40;
+const SNAP_THRESHOLD = 12;
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
@@ -65,22 +66,24 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, re
           minHeight: noteHeight,
           borderLeftColor: category?.color || Colors.accent1,
           transform: animatedTransform,
-          zIndex: isDragging || isResizing ? 1000 : 1,
+          zIndex: note.zIndex || 1,
           opacity: isDragging ? 0.9 : 1,
         }
       ]}
     >
       {/* Draggable content area */}
       <View {...panResponder.panHandlers} style={styles.noteCardContent}>
-        <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
-          <Text style={styles.categoryBadgeText}>{category?.label}</Text>
-        </View>
         <Text style={styles.noteCardTitle}>{note.title}</Text>
         {note.content ? (
           <Text style={styles.noteCardContentText} numberOfLines={3}>
             {note.content}
           </Text>
         ) : null}
+      </View>
+
+      {/* Category Badge - Bottom Left */}
+      <View style={[styles.noteCategoryBadge, { backgroundColor: category?.color }]}>
+        <Text style={styles.categoryBadgeText}>{category?.label}</Text>
       </View>
 
       {/* Resize Handle */}
@@ -132,6 +135,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [tapPosition, setTapPosition] = useState({ x: 0, y: 0 });
   const [draggingNoteId, setDraggingNoteId] = useState(null);
   const [resizingNoteId, setResizingNoteId] = useState(null);
+  const [guideLines, setGuideLines] = useState({ vertical: [], horizontal: [] });
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
   const noteResizePanResponders = useRef({}).current;
@@ -284,6 +288,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         width: NOTE_CARD_DEFAULT_WIDTH,
         height: NOTE_CARD_DEFAULT_HEIGHT,
       },
+      zIndex: currentNote?.zIndex || Date.now(),
       categoryData,
     };
 
@@ -334,6 +339,100 @@ export default function WorkspaceScreen({ navigation, route }) {
     setModalVisible(true);
   };
 
+  // Calculate snap points and guide lines
+  const calculateSnapping = (noteId, currentX, currentY, noteWidth, noteHeight) => {
+    const vertical = [];
+    const horizontal = [];
+    let snappedX = currentX;
+    let snappedY = currentY;
+
+    // Grid snapping points (every GRID_SPACING pixels)
+    const gridSnapX = Math.round(currentX / GRID_SPACING) * GRID_SPACING;
+    const gridSnapY = Math.round(currentY / GRID_SPACING) * GRID_SPACING;
+
+    // Check left edge snap to grid
+    if (Math.abs(currentX - gridSnapX) < SNAP_THRESHOLD) {
+      snappedX = gridSnapX;
+      vertical.push(gridSnapX);
+    }
+
+    // Check right edge snap to grid
+    const rightEdge = currentX + noteWidth;
+    const gridSnapRight = Math.round(rightEdge / GRID_SPACING) * GRID_SPACING;
+    if (Math.abs(rightEdge - gridSnapRight) < SNAP_THRESHOLD) {
+      snappedX = gridSnapRight - noteWidth;
+      vertical.push(gridSnapRight);
+    }
+
+    // Check top edge snap to grid
+    if (Math.abs(currentY - gridSnapY) < SNAP_THRESHOLD) {
+      snappedY = gridSnapY;
+      horizontal.push(gridSnapY);
+    }
+
+    // Check bottom edge snap to grid
+    const bottomEdge = currentY + noteHeight;
+    const gridSnapBottom = Math.round(bottomEdge / GRID_SPACING) * GRID_SPACING;
+    if (Math.abs(bottomEdge - gridSnapBottom) < SNAP_THRESHOLD) {
+      snappedY = gridSnapBottom - noteHeight;
+      horizontal.push(gridSnapBottom);
+    }
+
+    // Snap to other notes
+    notes.forEach(otherNote => {
+      if (otherNote.id === noteId) return;
+
+      const otherWidth = otherNote.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
+      const otherHeight = otherNote.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
+      const otherX = otherNote.position.x;
+      const otherY = otherNote.position.y;
+
+      // Check vertical alignment (left edges, right edges, centers)
+      if (Math.abs(currentX - otherX) < SNAP_THRESHOLD) {
+        snappedX = otherX;
+        vertical.push(otherX);
+      }
+      if (Math.abs(rightEdge - (otherX + otherWidth)) < SNAP_THRESHOLD) {
+        snappedX = otherX + otherWidth - noteWidth;
+        vertical.push(otherX + otherWidth);
+      }
+
+      // Check horizontal alignment (top edges, bottom edges, centers)
+      if (Math.abs(currentY - otherY) < SNAP_THRESHOLD) {
+        snappedY = otherY;
+        horizontal.push(otherY);
+      }
+      if (Math.abs(bottomEdge - (otherY + otherHeight)) < SNAP_THRESHOLD) {
+        snappedY = otherY + otherHeight - noteHeight;
+        horizontal.push(otherY + otherHeight);
+      }
+    });
+
+    // Canvas center snapping
+    const canvasCenterX = CANVAS_WIDTH / 2;
+    const canvasCenterY = CANVAS_HEIGHT / 2;
+    const noteCenterX = currentX + noteWidth / 2;
+    const noteCenterY = currentY + noteHeight / 2;
+
+    if (Math.abs(noteCenterX - canvasCenterX) < SNAP_THRESHOLD) {
+      snappedX = canvasCenterX - noteWidth / 2;
+      vertical.push(canvasCenterX);
+    }
+    if (Math.abs(noteCenterY - canvasCenterY) < SNAP_THRESHOLD) {
+      snappedY = canvasCenterY - noteHeight / 2;
+      horizontal.push(canvasCenterY);
+    }
+
+    return {
+      x: snappedX,
+      y: snappedY,
+      guides: {
+        vertical: [...new Set(vertical)], // Remove duplicates
+        horizontal: [...new Set(horizontal)],
+      },
+    };
+  };
+
   const getNotePanResponder = (note) => {
     // Create pan value if it doesn't exist
     if (!notePanValues[note.id]) {
@@ -352,6 +451,11 @@ export default function WorkspaceScreen({ navigation, route }) {
         if (!isDragging) {
           isDragging = true;
           setDraggingNoteId(note.id);
+
+          // Bring note to front by updating its zIndex
+          setNotes(prevNotes => prevNotes.map(n =>
+            n.id === note.id ? { ...n, zIndex: Date.now() } : n
+          ));
         }
         if (longPressTimeout) {
           clearTimeout(longPressTimeout);
@@ -403,6 +507,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                 if (isDragging) {
                   isDragging = false;
                   setDraggingNoteId(null);
+                  setGuideLines({ vertical: [], horizontal: [] });
                 }
                 pan.setValue({ x: 0, y: 0 });
                 lastTapTimestamp = 0;
@@ -418,6 +523,21 @@ export default function WorkspaceScreen({ navigation, route }) {
                   }
                   activateDrag();
                 }
+              } else {
+                // Apply snapping while dragging
+                const noteWidth = note.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
+                const noteHeight = note.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
+                const rawX = note.position.x + gesture.dx;
+                const rawY = note.position.y + gesture.dy;
+
+                const snapResult = calculateSnapping(note.id, rawX, rawY, noteWidth, noteHeight);
+
+                // Apply snapped deltas
+                const snappedDx = snapResult.x - note.position.x;
+                const snappedDy = snapResult.y - note.position.y;
+
+                pan.setValue({ x: snappedDx, y: snappedDy });
+                setGuideLines(snapResult.guides);
               }
             },
           }
@@ -432,6 +552,7 @@ export default function WorkspaceScreen({ navigation, route }) {
           if (isDragging) {
             isDragging = false;
             setDraggingNoteId(null);
+            setGuideLines({ vertical: [], horizontal: [] }); // Clear guide lines
             justFinishedDrag.current = true; // Mark that we just finished dragging
 
             // Get the current animated values (these are the actual drag deltas)
@@ -947,6 +1068,28 @@ export default function WorkspaceScreen({ navigation, route }) {
               />
             );
           })}
+
+          {/* Smart Guide Lines */}
+          {guideLines.vertical.map((x, index) => (
+            <View
+              key={`v-${index}`}
+              style={[
+                styles.guideLine,
+                styles.guideLineVertical,
+                { left: x }
+              ]}
+            />
+          ))}
+          {guideLines.horizontal.map((y, index) => (
+            <View
+              key={`h-${index}`}
+              style={[
+                styles.guideLine,
+                styles.guideLineHorizontal,
+                { top: y }
+              ]}
+            />
+          ))}
 
           {/* Floating Close Button */}
           <TouchableOpacity
@@ -1486,6 +1629,7 @@ const styles = StyleSheet.create({
     shadowColor: '#fff',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
+    zIndex: 2000,
     shadowRadius: 15,
     elevation: 10,
   },
@@ -1496,6 +1640,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 12,
+    zIndex: 2000,
   },
   floatingImportButton: {
     width: 48,
@@ -1560,6 +1705,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
     cursor: 'nwse-resize',
+  },
+  noteCategoryBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  guideLine: {
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    opacity: 0.4,
+    pointerEvents: 'none',
+    zIndex: 500,
+  },
+  guideLineVertical: {
+    width: 1,
+    height: CANVAS_HEIGHT,
+    top: 0,
+  },
+  guideLineHorizontal: {
+    height: 1,
+    width: CANVAS_WIDTH,
+    left: 0,
   },
   categoryBadgeText: {
     color: '#fff',
