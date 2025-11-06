@@ -530,9 +530,13 @@ export default function WorkspaceScreen({ navigation, route }) {
 
       onPanResponderGrant: () => {
         setResizingNoteId(note.id);
-        // Store initial dimensions
-        initialWidth = note.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
-        initialHeight = note.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
+        // Get current dimensions from state, not stale closure
+        setNotes(prevNotes => {
+          const currentNote = prevNotes.find(n => n.id === note.id);
+          initialWidth = currentNote?.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH;
+          initialHeight = currentNote?.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT;
+          return prevNotes; // Don't modify state, just read current values
+        });
       },
 
       onPanResponderMove: (evt, gestureState) => {
