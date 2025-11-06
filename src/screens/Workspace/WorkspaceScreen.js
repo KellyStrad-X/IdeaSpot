@@ -214,8 +214,10 @@ export default function WorkspaceScreen({ navigation, route }) {
       const pan = notePanValues[note.id];
 
       notePanResponders[note.id] = PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => isDragging,
+        onMoveShouldSetPanResponderCapture: () => isDragging,
 
         onPanResponderGrant: (evt, gestureState) => {
           // Start long press timer
@@ -223,7 +225,7 @@ export default function WorkspaceScreen({ navigation, route }) {
             isDragging = true;
             setDraggingNoteId(note.id);
             pan.setValue({ x: 0, y: 0 });
-          }, 500); // 500ms long press
+          }, 400); // 400ms long press
         },
 
         onPanResponderMove: Animated.event(
