@@ -1162,8 +1162,9 @@ export default function WorkspaceScreen({ navigation, route }) {
                   style={styles.carouselCanvasWrapper}
                 >
                   <View style={styles.carouselCanvas}>
-                    <View style={[styles.notesCanvas, { transform: [{ scale: 0.85 }] }]}>
-                      {/* Grid Background */}
+                    <View style={styles.carouselCanvasScaleWrapper}>
+                      <View style={[styles.notesCanvas, styles.carouselNotesCanvas]}>
+                        {/* Grid Background */}
                       <View style={styles.gridBackground}>
                         {gridDots.map(dot => (
                           <View
@@ -1238,6 +1239,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                             <Ionicons name="add" size={32} color={Colors.textPrimary} />
                           </View>
                         </View>
+                      </View>
                       </View>
                     </View>
                   </View>
@@ -2352,9 +2354,6 @@ const styles = StyleSheet.create({
   carouselCanvas: {
     width: SCREEN_WIDTH * 0.95,
     height: SCREEN_HEIGHT * 0.85,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#555555',
     backgroundColor: Colors.background,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -2362,6 +2361,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 25,
     elevation: 20,
+  },
+  carouselCanvasScaleWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselNotesCanvas: {
+    transform: [{ scale: 0.85 }],
   },
   paginationContainer: {
     position: 'absolute',
@@ -2387,8 +2394,6 @@ const styles = StyleSheet.create({
   addNewCanvasCard: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderStyle: 'dashed',
-    borderColor: Colors.accent1,
     backgroundColor: Colors.cardBackground,
   },
   addNewCanvasText: {
