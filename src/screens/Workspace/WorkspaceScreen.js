@@ -28,6 +28,7 @@ const NOTE_CATEGORIES = [
   { id: 'question', label: 'Question', color: '#FFD93D' },
   { id: 'todo', label: 'To-Do', color: '#A78BFA' },
 ];
+const DRAG_ACTIVATION_THRESHOLD = 8;
 
 // Memoized NoteCard component to prevent unnecessary re-renders
 const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) => {
@@ -311,7 +312,19 @@ export default function WorkspaceScreen({ navigation, route }) {
 
         onPanResponderMove: Animated.event(
           [null, { dx: pan.x, dy: pan.y }],
-          { useNativeDriver: false }
+          {
+            useNativeDriver: false,
+            listener: (_, gesture) => {
+              if (!isDragging) {
+                const distanceSq = gesture.dx * gesture.dx + gesture.dy * gesture.dy;
+                if (distanceSq > DRAG_ACTIVATION_THRESHOLD * DRAG_ACTIVATION_THRESHOLD) {
+                  clearTimeout(longPressTimeout);
+                  isDragging = true;
+                  setDraggingNoteId(note.id);
+                }
+              }
+            },
+          }
         ),
 
         onPanResponderRelease: (evt, gestureState) => {
