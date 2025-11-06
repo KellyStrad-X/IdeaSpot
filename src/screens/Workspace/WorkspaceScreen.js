@@ -301,7 +301,7 @@ export default function WorkspaceScreen({ navigation, route }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Elevator Pitch</Text>
         <Pressable
-          onPressIn={(e) => {
+          onTouchStart={(e) => {
             touchStart.current = {
               x: e.nativeEvent.pageX,
               y: e.nativeEvent.pageY,
@@ -312,12 +312,12 @@ export default function WorkspaceScreen({ navigation, route }) {
             const touch = e.nativeEvent.touches[0];
             const deltaX = Math.abs(touch.pageX - touchStart.current.x);
             const deltaY = Math.abs(touch.pageY - touchStart.current.y);
-            // If moved more than 10 pixels in any direction, it's a drag
-            if (deltaX > 10 || deltaY > 10) {
+            // If moved more than 5 pixels in any direction, it's a drag
+            if (deltaX > 5 || deltaY > 5) {
               isDragging.current = true;
             }
           }}
-          onPress={() => {
+          onTouchEnd={() => {
             // Only focus if it wasn't a drag
             if (!isDragging.current) {
               elevatorPitchRef.current?.focus();
