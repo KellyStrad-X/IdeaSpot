@@ -116,10 +116,6 @@ export default function WorkspaceScreen({ navigation, route }) {
               </Text>
             ))}
           </View>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Regenerate</Text>
-          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -151,10 +147,6 @@ export default function WorkspaceScreen({ navigation, route }) {
               <Text style={styles.sectionText}>{insight.advice}</Text>
             </View>
           ))}
-
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>Regenerate</Text>
-          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -196,9 +188,6 @@ export default function WorkspaceScreen({ navigation, route }) {
                   )}
                 </View>
               ))}
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>Regenerate</Text>
-              </TouchableOpacity>
             </>
           ) : (
             <View style={styles.placeholderContainer}>
@@ -269,10 +258,6 @@ export default function WorkspaceScreen({ navigation, route }) {
                   <Text style={styles.projectionText}>1000 users: {idea.cards.monetization.projections.users1000}</Text>
                 </View>
               )}
-
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>Regenerate</Text>
-              </TouchableOpacity>
             </>
           ) : (
             <View style={styles.placeholderContainer}>
@@ -695,7 +680,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   personaText: {
-    color: Colors.accent1,
+    color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
