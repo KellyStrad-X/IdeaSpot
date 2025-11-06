@@ -37,32 +37,14 @@ const NOTE_CATEGORIES = [
 ];
 
 // Memoized NoteCard component to prevent unnecessary re-renders
-const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, canvasScale }) => {
+const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) => {
   const animatedTransform = [];
-
-  // Apply inverse scale to keep note at fixed size
-  if (canvasScale) {
-    animatedTransform.push({ scale: Animated.divide(1, canvasScale) });
-  }
-
   if (isDragging && pan) {
     animatedTransform.push({ translateX: pan.x }, { translateY: pan.y });
   }
   if (isDragging) {
-    animatedTransform.push({ scale: Animated.multiply(
-      canvasScale ? Animated.divide(1.1, canvasScale) : 1.1,
-      1
-    )});
+    animatedTransform.push({ scale: 1.1 });
   }
-
-  // Calculate scaled position
-  const scaledPosition = canvasScale ? {
-    left: Animated.multiply(note.position.x, canvasScale),
-    top: Animated.multiply(note.position.y, canvasScale),
-  } : {
-    left: note.position.x,
-    top: note.position.y,
-  };
 
   return (
     <Animated.View
@@ -70,8 +52,9 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, ca
       {...panResponder.panHandlers}
       style={[
         styles.noteCard,
-        scaledPosition,
         {
+          left: note.position.x,
+          top: note.position.y,
           borderLeftColor: category?.color || Colors.accent1,
           transform: animatedTransform,
           zIndex: isDragging ? 1000 : 1,
@@ -124,299 +107,6 @@ export default function WorkspaceScreen({ navigation, route }) {
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
   const justFinishedDrag = useRef(false);
-
-  // Canvas transform state for zoom and pan
-  const canvasScale = useRef(new Animated.Value(1)).current;
-  const canvasOffset = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const lastScale = useRef(1);
-  const lastOffset = useRef({ x: 0, y: 0 });
-  const [isCanvasPanning, setIsCanvasPanning] = useState(false);
-  const [isCanvasGestureActive, setIsCanvasGestureActive] = useState(false);
-
-  // Canvas gesture tracking refs
-  const initialPinchDistance = useRef(null);
-  const initialPinchCenter = useRef(null);
-  const canvasPanStartOffset = useRef({ x: 0, y: 0 });
-  const currentTouchCount = useRef(0);
-  const pinchFocalPoint = useRef({ x: 0, y: 0 });
-  const lastCanvasTapTime = useRef(0);
-  const doubleTapTimeout = useRef(null);
-
-  // Zoom constraints
-  const MIN_SCALE = 0.5;
-  const MAX_SCALE = 3;
-
-  // Helper functions for gesture calculations
-  const getDistance = (touches) => {
-    if (touches.length < 2) return null;
-    const [touch1, touch2] = touches;
-    const dx = touch1.pageX - touch2.pageX;
-    const dy = touch1.pageY - touch2.pageY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  const getCenter = (touches) => {
-    if (touches.length < 2) return null;
-    const [touch1, touch2] = touches;
-    return {
-      x: (touch1.pageX + touch2.pageX) / 2,
-      y: (touch1.pageY + touch2.pageY) / 2,
-    };
-  };
-
-  // Canvas-level PanResponder for zoom and pan
-  const canvasPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: (evt) => {
-        const touchCount = evt.nativeEvent.touches.length;
-        currentTouchCount.current = touchCount;
-
-        // Take control if 2+ fingers or if canvas gesture is already active
-        if (touchCount >= 2 || isCanvasGestureActive) {
-          return true;
-        }
-        return false;
-      },
-
-      onMoveShouldSetPanResponder: (evt) => {
-        const touchCount = evt.nativeEvent.touches.length;
-        currentTouchCount.current = touchCount;
-
-        // Take control if 2+ fingers
-        if (touchCount >= 2) {
-          return true;
-        }
-
-        // Continue single-finger pan if it was started with two fingers
-        if (isCanvasPanning && touchCount === 1) {
-          return true;
-        }
-
-        return false;
-      },
-
-      onPanResponderGrant: (evt) => {
-        const touches = evt.nativeEvent.touches;
-        const touchCount = touches.length;
-
-        if (touchCount >= 2) {
-          // Cancel any active note drag
-          if (draggingNoteId) {
-            setDraggingNoteId(null);
-            // Reset the note's pan value
-            if (notePanValues[draggingNoteId]) {
-              notePanValues[draggingNoteId].setValue({ x: 0, y: 0 });
-            }
-          }
-
-          setIsCanvasGestureActive(true);
-          setIsCanvasPanning(true);
-
-          // Initialize pinch-to-zoom
-          const distance = getDistance(touches);
-          const center = getCenter(touches);
-
-          initialPinchDistance.current = distance;
-          initialPinchCenter.current = center;
-          pinchFocalPoint.current = center;
-
-          // Store current offset for pan calculation
-          canvasPanStartOffset.current = {
-            x: lastOffset.current.x,
-            y: lastOffset.current.y,
-          };
-        } else if (touchCount === 1 && isCanvasPanning) {
-          // Continuing pan with single finger after two-finger start
-          const touch = touches[0];
-          canvasPanStartOffset.current = {
-            x: lastOffset.current.x - touch.pageX,
-            y: lastOffset.current.y - touch.pageY,
-          };
-        }
-      },
-
-      onPanResponderMove: (evt) => {
-        const touches = evt.nativeEvent.touches;
-        const touchCount = touches.length;
-        currentTouchCount.current = touchCount;
-
-        if (touchCount >= 2 && initialPinchDistance.current) {
-          // Handle pinch-to-zoom and two-finger pan
-          const distance = getDistance(touches);
-          const center = getCenter(touches);
-
-          if (distance && initialPinchDistance.current) {
-            // Calculate new scale
-            const scaleChange = distance / initialPinchDistance.current;
-            const newScale = lastScale.current * scaleChange;
-            const clampedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
-
-            // Calculate pan offset based on movement from initial center
-            if (initialPinchCenter.current && center) {
-              const panDx = center.x - initialPinchCenter.current.x;
-              const panDy = center.y - initialPinchCenter.current.y;
-
-              // Calculate zoom focal point adjustment
-              // This makes zoom focus on the pinch center
-              const scaleDiff = clampedScale - lastScale.current;
-              const focalAdjustX = (pinchFocalPoint.current.x - SCREEN_WIDTH / 2) * scaleDiff / lastScale.current;
-              const focalAdjustY = (pinchFocalPoint.current.y - SCREEN_HEIGHT / 2) * scaleDiff / lastScale.current;
-
-              const newOffsetX = canvasPanStartOffset.current.x + panDx - focalAdjustX;
-              const newOffsetY = canvasPanStartOffset.current.y + panDy - focalAdjustY;
-
-              // Apply transforms with animation
-              canvasScale.setValue(clampedScale);
-              canvasOffset.setValue({
-                x: newOffsetX,
-                y: newOffsetY,
-              });
-            }
-          }
-        } else if (touchCount === 1 && isCanvasPanning) {
-          // Single finger pan (continuation after two-finger start)
-          const touch = touches[0];
-          const newOffsetX = canvasPanStartOffset.current.x + touch.pageX;
-          const newOffsetY = canvasPanStartOffset.current.y + touch.pageY;
-
-          canvasOffset.setValue({
-            x: newOffsetX,
-            y: newOffsetY,
-          });
-        }
-      },
-
-      onPanResponderRelease: (evt, gestureState) => {
-        const touchCount = evt.nativeEvent.touches.length;
-
-        // Store final values
-        lastScale.current = canvasScale._value;
-        lastOffset.current = {
-          x: canvasOffset.x._value,
-          y: canvasOffset.y._value,
-        };
-
-        // If all fingers released, end canvas gesture
-        if (touchCount === 0) {
-          // Check for double-tap to reset zoom
-          const now = Date.now();
-          const timeSinceLastTap = now - lastCanvasTapTime.current;
-
-          if (timeSinceLastTap < 300 &&
-              Math.abs(gestureState.dx) < 10 &&
-              Math.abs(gestureState.dy) < 10 &&
-              !initialPinchDistance.current) {
-            // Double-tap detected - reset zoom and center
-            Animated.parallel([
-              Animated.spring(canvasScale, {
-                toValue: 1,
-                useNativeDriver: false,
-                tension: 50,
-                friction: 7,
-              }),
-              Animated.spring(canvasOffset, {
-                toValue: { x: 0, y: 0 },
-                useNativeDriver: false,
-                tension: 50,
-                friction: 7,
-              }),
-            ]).start();
-
-            lastScale.current = 1;
-            lastOffset.current = { x: 0, y: 0 };
-            lastCanvasTapTime.current = 0;
-          } else {
-            lastCanvasTapTime.current = now;
-          }
-
-          setIsCanvasPanning(false);
-          setIsCanvasGestureActive(false);
-          initialPinchDistance.current = null;
-          initialPinchCenter.current = null;
-
-          // Apply spring animation to boundaries if needed
-          const scale = lastScale.current;
-          const offsetX = lastOffset.current.x;
-          const offsetY = lastOffset.current.y;
-
-          // Calculate max pan boundaries based on scale
-          const scaledWidth = CANVAS_WIDTH * scale;
-          const scaledHeight = CANVAS_HEIGHT * scale;
-          const maxPanX = Math.max(0, (scaledWidth - SCREEN_WIDTH) / 2);
-          const maxPanY = Math.max(0, (scaledHeight - SCREEN_HEIGHT) / 2);
-
-          let boundedX = offsetX;
-          let boundedY = offsetY;
-
-          // Apply elastic boundaries
-          if (Math.abs(offsetX) > maxPanX) {
-            boundedX = offsetX > 0 ? maxPanX : -maxPanX;
-          }
-          if (Math.abs(offsetY) > maxPanY) {
-            boundedY = offsetY > 0 ? maxPanY : -maxPanY;
-          }
-
-          if (boundedX !== offsetX || boundedY !== offsetY) {
-            Animated.spring(canvasOffset, {
-              toValue: { x: boundedX, y: boundedY },
-              useNativeDriver: false,
-              tension: 40,
-              friction: 7,
-            }).start();
-
-            lastOffset.current = { x: boundedX, y: boundedY };
-          }
-
-          // Add momentum scrolling with decay animation
-          const velocityX = gestureState.vx * 100;
-          const velocityY = gestureState.vy * 100;
-
-          if (Math.abs(velocityX) > 50 || Math.abs(velocityY) > 50) {
-            Animated.decay(canvasOffset, {
-              velocity: { x: velocityX, y: velocityY },
-              deceleration: 0.997,
-              useNativeDriver: false,
-            }).start(({ finished }) => {
-              if (finished) {
-                // Apply boundaries after momentum scroll
-                const finalX = canvasOffset.x._value;
-                const finalY = canvasOffset.y._value;
-
-                let boundX = Math.max(-maxPanX, Math.min(maxPanX, finalX));
-                let boundY = Math.max(-maxPanY, Math.min(maxPanY, finalY));
-
-                if (boundX !== finalX || boundY !== finalY) {
-                  Animated.spring(canvasOffset, {
-                    toValue: { x: boundX, y: boundY },
-                    useNativeDriver: false,
-                    tension: 40,
-                    friction: 7,
-                  }).start();
-                }
-
-                lastOffset.current = { x: boundX, y: boundY };
-              }
-            });
-          }
-        }
-      },
-
-      onPanResponderTerminate: () => {
-        // Store final values
-        lastScale.current = canvasScale._value;
-        lastOffset.current = {
-          x: canvasOffset.x._value,
-          y: canvasOffset.y._value,
-        };
-
-        setIsCanvasPanning(false);
-        setIsCanvasGestureActive(false);
-        initialPinchDistance.current = null;
-        initialPinchCenter.current = null;
-        currentTouchCount.current = 0;
-      },
-    })
-  ).current;
 
   const gridDots = useMemo(() => {
     const rows = Math.ceil(CANVAS_HEIGHT / GRID_SPACING);
@@ -648,17 +338,12 @@ export default function WorkspaceScreen({ navigation, route }) {
       };
 
       notePanResponders[note.id] = PanResponder.create({
-        onStartShouldSetPanResponder: (evt) => {
-          // Don't capture if canvas gesture is active or multiple touches
-          return evt.nativeEvent.touches.length === 1 && !isCanvasGestureActive;
-        },
-        onStartShouldSetPanResponderCapture: (evt) => {
-          return evt.nativeEvent.touches.length === 1 && !isCanvasGestureActive;
-        },
+        onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 1,
+        onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length === 1,
         onMoveShouldSetPanResponder: (evt, gestureState) =>
-          isDragging && gestureState.numberActiveTouches === 1 && !isCanvasGestureActive,
+          isDragging && gestureState.numberActiveTouches === 1,
         onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
-          isDragging && gestureState.numberActiveTouches === 1 && !isCanvasGestureActive,
+          isDragging && gestureState.numberActiveTouches === 1,
 
         onPanResponderGrant: (evt) => {
           if (evt.nativeEvent.touches.length !== 1) {
@@ -720,20 +405,14 @@ export default function WorkspaceScreen({ navigation, route }) {
             const dx = pan.x._value;
             const dy = pan.y._value;
 
-            // Convert screen-space deltas to canvas-space deltas
-            // Since notes maintain fixed screen size, we need to divide by scale
-            const currentScale = canvasScale._value || 1;
-            const canvasDx = dx / currentScale;
-            const canvasDy = dy / currentScale;
-
             // Update note position in state
             // IMPORTANT: Look up current note position from state, not from closure
             setNotes(prevNotes => {
               return prevNotes.map(n => {
                 if (n.id === note.id) {
                   // Use current position from state, not stale closure variable
-                  const newX = n.position.x + canvasDx;
-                  const newY = n.position.y + canvasDy;
+                  const newX = n.position.x + dx;
+                  const newY = n.position.y + dy;
 
                   return { ...n, position: { x: newX, y: newY } };
                 }
@@ -1145,81 +824,37 @@ export default function WorkspaceScreen({ navigation, route }) {
         ]}
       >
         {/* Canvas with stippled grid */}
-        <View style={styles.notesCanvas} {...canvasPanResponder.panHandlers}>
-          {/* Transformed container for grid and notes */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              width: CANVAS_WIDTH,
-              height: CANVAS_HEIGHT,
-              transform: [
-                { translateX: canvasOffset.x },
-                { translateY: canvasOffset.y },
-                { scale: canvasScale },
-              ],
-            }}
-          >
-            {/* Grid background - scales with zoom */}
-            <View style={styles.gridBackground}>
-              {gridDots.map(dot => (
-                <View
-                  key={dot.key}
-                  style={[
-                    styles.gridDot,
-                    { top: dot.top, left: dot.left }
-                  ]}
-                />
-              ))}
-            </View>
-          </Animated.View>
+        <View style={styles.notesCanvas}>
+          <View style={styles.gridBackground}>
+            {gridDots.map(dot => (
+              <View
+                key={dot.key}
+                style={[
+                  styles.gridDot,
+                  { top: dot.top, left: dot.left }
+                ]}
+              />
+            ))}
+          </View>
 
-          {/* Notes container - positioned with canvas offset */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              width: CANVAS_WIDTH,
-              height: CANVAS_HEIGHT,
-              transform: [
-                { translateX: canvasOffset.x },
-                { translateY: canvasOffset.y },
-              ],
-            }}
-          >
-            {/* Render notes with scale adjustments handled in NoteCard */}
-            {notes.map(note => {
-              const category = NOTE_CATEGORIES.find(c => c.id === note.category);
-              const panResponder = getNotePanResponder(note);
-              const pan = notePanValues[note.id];
-              const isDragging = draggingNoteId === note.id;
+          {/* Render notes */}
+          {notes.map(note => {
+            const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+            const panResponder = getNotePanResponder(note);
+            const pan = notePanValues[note.id];
+            const isDragging = draggingNoteId === note.id;
 
-              // Simple viewport culling for performance
-              // Only render notes that might be visible
-              const noteX = note.position.x * lastScale.current + lastOffset.current.x;
-              const noteY = note.position.y * lastScale.current + lastOffset.current.y;
-              const isInViewport = (
-                noteX > -NOTE_CARD_WIDTH * 2 &&
-                noteX < SCREEN_WIDTH + NOTE_CARD_WIDTH &&
-                noteY > -NOTE_CARD_MIN_HEIGHT * 2 &&
-                noteY < SCREEN_HEIGHT + NOTE_CARD_MIN_HEIGHT
-              );
-
-              if (!isInViewport && !isDragging) {
-                return null;
-              }
-
-              return (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  category={category}
-                  panResponder={panResponder}
-                  pan={pan}
-                  isDragging={isDragging}
-                  canvasScale={canvasScale}
-                />
-              );
-            })}
-          </Animated.View>
+            return (
+              <NoteCard
+                key={note.id}
+                note={note}
+                category={category}
+                panResponder={panResponder}
+                pan={pan}
+                isDragging={isDragging}
+              />
+            );
+          })}
 
           {/* Floating Close Button */}
           <TouchableOpacity
