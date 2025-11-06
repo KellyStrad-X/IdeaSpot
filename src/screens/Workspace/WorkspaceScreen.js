@@ -138,6 +138,8 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [renamingCanvasId, setRenamingCanvasId] = useState(null);
   const [newCanvasName, setNewCanvasName] = useState('');
+  const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
+  const canvasZoomAnim = useRef(new Animated.Value(1)).current;
 
   // Notes canvas state
   const [notes, setNotes] = useState([]);
@@ -301,7 +303,32 @@ export default function WorkspaceScreen({ navigation, route }) {
 
   // Canvas management functions
   const toggleCanvasPicker = () => {
-    setCanvasPickerVisible(!canvasPickerVisible);
+    if (canvasPickerVisible) {
+      // Close picker - zoom back in
+      Animated.spring(canvasZoomAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 10,
+      }).start(() => {
+        setCanvasPickerVisible(false);
+      });
+    } else {
+      // Open picker - zoom out
+      setCanvasPickerVisible(true);
+      Animated.spring(canvasZoomAnim, {
+        toValue: 0.92,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 10,
+      }).start();
+    }
+  };
+
+  const handleCarouselScroll = (event) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / SCREEN_WIDTH);
+    setCurrentCarouselIndex(index);
   };
 
   const handleCreateCanvas = async () => {
@@ -310,11 +337,19 @@ export default function WorkspaceScreen({ navigation, route }) {
       const newCanvas = await createCanvas(ideaId, `Canvas ${canvasNumber}`);
       setCanvases([...canvases, newCanvas]);
 
-      // Switch to new canvas and close picker
+      // Switch to new canvas and close picker with animation
       await setCurrentCanvas(ideaId, newCanvas.id);
       setCurrentCanvasIdState(newCanvas.id);
       setNotes([]); // New canvas is empty
-      setCanvasPickerVisible(false);
+
+      Animated.spring(canvasZoomAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 10,
+      }).start(() => {
+        setCanvasPickerVisible(false);
+      });
 
       console.log('✅ Created new canvas:', newCanvas);
     } catch (error) {
@@ -325,8 +360,15 @@ export default function WorkspaceScreen({ navigation, route }) {
 
   const handleSwitchCanvas = async (canvasId) => {
     if (canvasId === currentCanvasId) {
-      // Just close picker if selecting current canvas
-      setCanvasPickerVisible(false);
+      // Just close picker with animation if selecting current canvas
+      Animated.spring(canvasZoomAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 10,
+      }).start(() => {
+        setCanvasPickerVisible(false);
+      });
       return;
     }
 
@@ -346,8 +388,15 @@ export default function WorkspaceScreen({ navigation, route }) {
         setNotes(canvas.notes || []);
       }
 
-      // Close picker
-      setCanvasPickerVisible(false);
+      // Close picker with zoom animation
+      Animated.spring(canvasZoomAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 50,
+        friction: 10,
+      }).start(() => {
+        setCanvasPickerVisible(false);
+      });
 
       console.log('✅ Switched to canvas:', canvasId);
     } catch (error) {
@@ -1047,16 +1096,19 @@ export default function WorkspaceScreen({ navigation, route }) {
       >
         {canvasPickerVisible ? (
           /* Canvas Carousel View - Show all canvases horizontally */
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.canvasCarousel}
-            contentContainerStyle={styles.canvasCarouselContent}
-            decelerationRate="fast"
-            snapToInterval={SCREEN_WIDTH}
-            snapToAlignment="center"
-          >
+          <Animated.View style={{ flex: 1, transform: [{ scale: canvasZoomAnim }] }}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.canvasCarousel}
+              contentContainerStyle={styles.canvasCarouselContent}
+              decelerationRate="fast"
+              snapToInterval={SCREEN_WIDTH}
+              snapToAlignment="center"
+              onScroll={handleCarouselScroll}
+              scrollEventThrottle={16}
+            >
             {canvases.map((canvas) => {
               const isActive = canvas.id === currentCanvasId;
               return (
@@ -1067,14 +1119,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                   onLongPress={() => handleRenameCanvas(canvas.id, canvas.name)}
                   style={styles.carouselCanvasWrapper}
                 >
-                  <Animated.View
-                    style={[
-                      styles.carouselCanvas,
-                      {
-                        transform: [{ scale: 0.88 }],
-                      }
-                    ]}
-                  >
+                  <View style={styles.carouselCanvas}>
                     <View style={styles.notesCanvas}>
                       {/* Grid Background */}
                       <View style={styles.gridBackground}>
@@ -1128,7 +1173,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                         <Text style={styles.canvasNoteCountText}>{canvas.notes?.length || 0} notes</Text>
                       </View>
                     </View>
-                  </Animated.View>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -1138,20 +1183,31 @@ export default function WorkspaceScreen({ navigation, route }) {
               style={styles.carouselCanvasWrapper}
               onPress={handleCreateCanvas}
             >
-              <Animated.View
+              <View
                 style={[
                   styles.carouselCanvas,
                   styles.addNewCanvasCard,
-                  {
-                    transform: [{ scale: 0.88 }],
-                  }
                 ]}
               >
                 <Ionicons name="add-circle-outline" size={80} color={Colors.accent1} />
                 <Text style={styles.addNewCanvasText}>Create New Canvas</Text>
-              </Animated.View>
+              </View>
             </TouchableOpacity>
           </ScrollView>
+
+          {/* Pagination Dots */}
+          <View style={styles.paginationContainer}>
+            {[...canvases, { id: 'add-new' }].map((canvas, index) => (
+              <View
+                key={canvas.id}
+                style={[
+                  styles.paginationDot,
+                  index === currentCarouselIndex && styles.paginationDotActive
+                ]}
+              />
+            ))}
+          </View>
+        </Animated.View>
         ) : (
           /* Single Active Canvas View - Full zoom */
           <View style={styles.notesCanvas}>
@@ -2207,7 +2263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   carouselCanvas: {
-    width: SCREEN_WIDTH * 0.92,
+    width: SCREEN_WIDTH * 0.95,
     height: SCREEN_HEIGHT * 0.85,
     borderRadius: 20,
     borderWidth: 2,
@@ -2219,6 +2275,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 25,
     elevation: 20,
+  },
+  paginationContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 1000,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  paginationDotActive: {
+    width: 24,
+    backgroundColor: Colors.accent1,
   },
   addNewCanvasCard: {
     justifyContent: 'center',
