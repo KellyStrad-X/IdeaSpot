@@ -135,8 +135,11 @@ export default function ChatScreen({ navigation, route }) {
           await addChatMessage(newIdeaId, msg.role, msg.content);
         }
 
-        // Navigate to dashboard immediately
-        navigation.navigate('DashboardHome');
+        // Reset navigation to dashboard (clears the chat from stack)
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'DashboardHome' }],
+        });
 
         // Generate AI cards asynchronously (runs in background)
         generateIdeaCards(newIdeaId, firstUserMessage).catch((error) => {
