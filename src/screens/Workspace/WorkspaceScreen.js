@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,17 +21,24 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getIdea, updateIdea } from '../../services/firestore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const CANVAS_WIDTH = SCREEN_WIDTH * 2;
+const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
+const GRID_SPACING = 40;
+const DOUBLE_TAP_DELAY = 220;
+const DRAG_ACTIVATION_THRESHOLD = 8;
+const NOTE_CARD_WIDTH = 200;
+const NOTE_CARD_MIN_HEIGHT = 140;
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
   { id: 'question', label: 'Question', color: '#FFD93D' },
   { id: 'todo', label: 'To-Do', color: '#A78BFA' },
 ];
-const DRAG_ACTIVATION_THRESHOLD = 8;
 
 // Memoized NoteCard component to prevent unnecessary re-renders
-const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) => {
+const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging, onLayout }) => {
   const animatedTransform = [];
   if (isDragging && pan) {
     animatedTransform.push({ translateX: pan.x }, { translateY: pan.y });
@@ -44,6 +51,7 @@ const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) 
     <Animated.View
       key={note.id}
       {...panResponder.panHandlers}
+      onLayout={onLayout}
       style={[
         styles.noteCard,
         {
@@ -101,6 +109,95 @@ export default function WorkspaceScreen({ navigation, route }) {
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
   const justFinishedDrag = useRef(false);
+  const canvasBaseOffset = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const canvasPan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const canvasOffsetRef = useRef({ x: 0, y: 0 });
+  const viewportSizeRef = useRef({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
+  const noteMeasurements = useRef({}).current;
+  const noteLayoutHandlers = useRef({}).current;
+
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  const getCanvasBounds = () => {
+    const { width, height } = viewportSizeRef.current;
+    const minX = width >= CANVAS_WIDTH ? 0 : width - CANVAS_WIDTH;
+    const minY = height >= CANVAS_HEIGHT ? 0 : height - CANVAS_HEIGHT;
+    return {
+      minX,
+      maxX: 0,
+      minY,
+      maxY: 0,
+    };
+  };
+
+  const gridDots = useMemo(() => {
+    const rows = Math.ceil(CANVAS_HEIGHT / GRID_SPACING);
+    const cols = Math.ceil(CANVAS_WIDTH / GRID_SPACING);
+    const dots = [];
+
+    for (let row = 0; row <= rows; row += 1) {
+      for (let col = 0; col <= cols; col += 1) {
+        dots.push({
+          key: `dot-${row}-${col}`,
+          top: row * GRID_SPACING,
+          left: col * GRID_SPACING,
+        });
+      }
+    }
+
+    return dots;
+  }, []);
+
+  const finalizeCanvasPan = (gestureState) => {
+    const { minX, maxX, minY, maxY } = getCanvasBounds();
+    const finalX = clamp(canvasOffsetRef.current.x + gestureState.dx, minX, maxX);
+    const finalY = clamp(canvasOffsetRef.current.y + gestureState.dy, minY, maxY);
+    canvasOffsetRef.current = { x: finalX, y: finalY };
+    canvasBaseOffset.setValue(canvasOffsetRef.current);
+    canvasPan.setValue({ x: 0, y: 0 });
+  };
+
+  const canvasPanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+    onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length === 2,
+    onMoveShouldSetPanResponder: (evt, gestureState) =>
+      evt.nativeEvent.touches.length === 2 &&
+      (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2),
+    onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
+      evt.nativeEvent.touches.length === 2 &&
+      (Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2),
+    onPanResponderGrant: () => {
+      canvasPan.setValue({ x: 0, y: 0 });
+    },
+    onPanResponderMove: (evt, gestureState) => {
+      if (evt.nativeEvent.touches.length !== 2) {
+        return;
+      }
+      const { minX, maxX, minY, maxY } = getCanvasBounds();
+      const targetX = clamp(canvasOffsetRef.current.x + gestureState.dx, minX, maxX);
+      const targetY = clamp(canvasOffsetRef.current.y + gestureState.dy, minY, maxY);
+      canvasPan.setValue({
+        x: targetX - canvasOffsetRef.current.x,
+        y: targetY - canvasOffsetRef.current.y,
+      });
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      finalizeCanvasPan(gestureState);
+    },
+    onPanResponderTerminate: (evt, gestureState) => {
+      finalizeCanvasPan(gestureState);
+    },
+  })).current;
+
+  const getNoteLayoutHandler = (noteId) => {
+    if (!noteLayoutHandlers[noteId]) {
+      noteLayoutHandlers[noteId] = (event) => {
+        const { width, height } = event.nativeEvent.layout;
+        noteMeasurements[noteId] = { width, height };
+      };
+    }
+    return noteLayoutHandlers[noteId];
+  };
 
   // Category-specific fields
   const [featurePriority, setFeaturePriority] = useState('medium');
@@ -286,28 +383,54 @@ export default function WorkspaceScreen({ navigation, route }) {
     // Create pan responder if it doesn't exist
     if (!notePanResponders[note.id]) {
       let longPressTimeout = null;
+      let singleTapTimeout = null;
+      let lastTapTimestamp = 0;
       let isDragging = false;
       const pan = notePanValues[note.id];
 
+      const activateDrag = () => {
+        if (!isDragging) {
+          isDragging = true;
+          setDraggingNoteId(note.id);
+        }
+        if (longPressTimeout) {
+          clearTimeout(longPressTimeout);
+          longPressTimeout = null;
+        }
+      };
+
+      const clearTimers = () => {
+        if (longPressTimeout) {
+          clearTimeout(longPressTimeout);
+          longPressTimeout = null;
+        }
+        if (singleTapTimeout) {
+          clearTimeout(singleTapTimeout);
+          singleTapTimeout = null;
+        }
+      };
+
       notePanResponders[note.id] = PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onStartShouldSetPanResponderCapture: () => true,
-        onMoveShouldSetPanResponder: () => isDragging,
-        onMoveShouldSetPanResponderCapture: () => isDragging,
+        onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 1,
+        onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length === 1,
+        onMoveShouldSetPanResponder: (evt, gestureState) =>
+          isDragging && gestureState.numberActiveTouches === 1,
+        onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
+          isDragging && gestureState.numberActiveTouches === 1,
 
-        onPanResponderGrant: (evt, gestureState) => {
-          console.log('👆 TOUCH STARTED on note:', note.id);
-          // Reset pan animation to prevent stale values
+        onPanResponderGrant: (evt) => {
+          if (evt.nativeEvent.touches.length !== 1) {
+            return;
+          }
           pan.setValue({ x: 0, y: 0 });
+          if (singleTapTimeout) {
+            clearTimeout(singleTapTimeout);
+            singleTapTimeout = null;
+          }
 
-          // Start long press timer
           longPressTimeout = setTimeout(() => {
-            console.log('🔥 DRAG ACTIVATED for note:', note.id);
-            isDragging = true;
-            setDraggingNoteId(note.id);
-            // Don't reset pan here - let it continue from current gesture position
-            // This prevents the "glitch" when drag activates mid-gesture
-          }, 300); // Reduced to 300ms for more responsive feel
+            activateDrag();
+          }, 250);
         },
 
         onPanResponderMove: Animated.event(
@@ -315,24 +438,35 @@ export default function WorkspaceScreen({ navigation, route }) {
           {
             useNativeDriver: false,
             listener: (_, gesture) => {
-              if (!isDragging) {
-                const distanceSq = gesture.dx * gesture.dx + gesture.dy * gesture.dy;
-                if (distanceSq > DRAG_ACTIVATION_THRESHOLD * DRAG_ACTIVATION_THRESHOLD) {
+              if (gesture.numberActiveTouches > 1) {
+                if (longPressTimeout) {
                   clearTimeout(longPressTimeout);
-                  isDragging = true;
-                  setDraggingNoteId(note.id);
+                  longPressTimeout = null;
+                }
+                return;
+              }
+
+              if (!isDragging) {
+                const distanceSq = (gesture.dx * gesture.dx) + (gesture.dy * gesture.dy);
+                if (distanceSq > (DRAG_ACTIVATION_THRESHOLD * DRAG_ACTIVATION_THRESHOLD)) {
+                  if (longPressTimeout) {
+                    clearTimeout(longPressTimeout);
+                    longPressTimeout = null;
+                  }
+                  activateDrag();
                 }
               }
             },
           }
         ),
 
-        onPanResponderRelease: (evt, gestureState) => {
-          console.log('🖐️ TOUCH RELEASED, isDragging:', isDragging);
-          clearTimeout(longPressTimeout);
+        onPanResponderRelease: () => {
+          if (longPressTimeout) {
+            clearTimeout(longPressTimeout);
+            longPressTimeout = null;
+          }
 
           if (isDragging) {
-            console.log('✅ Processing drag release...');
             isDragging = false;
             setDraggingNoteId(null);
             justFinishedDrag.current = true; // Mark that we just finished dragging
@@ -341,34 +475,25 @@ export default function WorkspaceScreen({ navigation, route }) {
             const dx = pan.x._value;
             const dy = pan.y._value;
 
-            console.log('📍 Animated pan values - dx:', dx, 'dy:', dy);
-
             // Update note position in state
             // IMPORTANT: Look up current note position from state, not from closure
             setNotes(prevNotes => {
-              console.log('📝 Current notes state:', prevNotes);
               return prevNotes.map(n => {
                 if (n.id === note.id) {
-                  console.log('=== DRAG RELEASE DEBUG ===');
-                  console.log('Note ID:', note.id);
-                  console.log('Current position from state:', n.position);
-                  console.log('Pan animation dx:', dx);
-                  console.log('Pan animation dy:', dy);
+                  const dimensions = noteMeasurements[note.id];
+                  const noteWidth = dimensions?.width ?? NOTE_CARD_WIDTH;
+                  const noteHeight = dimensions?.height ?? NOTE_CARD_MIN_HEIGHT;
+                  const maxX = Math.max(0, CANVAS_WIDTH - noteWidth);
+                  const maxY = Math.max(0, CANVAS_HEIGHT - noteHeight);
 
                   // Use current position from state, not stale closure variable
                   const newX = n.position.x + dx;
                   const newY = n.position.y + dy;
 
-                  console.log('Calculated new position:', { x: newX, y: newY });
+                  const clampedX = clamp(newX, 0, maxX);
+                  const clampedY = clamp(newY, 0, maxY);
 
-                  // Validate coordinates to prevent NaN or undefined values
-                  const validX = isFinite(newX) ? newX : n.position.x;
-                  const validY = isFinite(newY) ? newY : n.position.y;
-
-                  console.log('Final valid position:', { x: validX, y: validY });
-                  console.log('======================');
-
-                  return { ...n, position: { x: validX, y: validY } };
+                  return { ...n, position: { x: clampedX, y: clampedY } };
                 }
                 return n;
               });
@@ -379,24 +504,46 @@ export default function WorkspaceScreen({ navigation, route }) {
             requestAnimationFrame(() => {
               pan.setValue({ x: 0, y: 0 });
             });
+
+            lastTapTimestamp = 0;
+            if (singleTapTimeout) {
+              clearTimeout(singleTapTimeout);
+              singleTapTimeout = null;
+            }
           } else {
-            console.log('❌ Short tap - opening edit modal');
             // Short tap (released before long-press activated)
             // Reset pan value to prevent visual artifacts
             pan.setValue({ x: 0, y: 0 });
-            // Open edit modal
-            handleEditNote(note);
+            const now = Date.now();
+            const isDoubleTap = now - lastTapTimestamp <= DOUBLE_TAP_DELAY;
+
+            if (isDoubleTap) {
+              lastTapTimestamp = 0;
+              if (singleTapTimeout) {
+                clearTimeout(singleTapTimeout);
+                singleTapTimeout = null;
+              }
+              handleEditNote(note);
+            } else {
+              lastTapTimestamp = now;
+              singleTapTimeout = setTimeout(() => {
+                handleEditNote(note);
+                singleTapTimeout = null;
+                lastTapTimestamp = 0;
+              }, DOUBLE_TAP_DELAY);
+            }
           }
         },
 
         onPanResponderTerminate: () => {
-          clearTimeout(longPressTimeout);
+          clearTimers();
           if (isDragging) {
             isDragging = false;
             setDraggingNoteId(null);
           }
           // Always reset pan value to prevent visual artifacts
           pan.setValue({ x: 0, y: 0 });
+          lastTapTimestamp = 0;
         },
       });
     }
@@ -756,40 +903,74 @@ export default function WorkspaceScreen({ navigation, route }) {
         ]}
       >
         {/* Canvas with stippled grid */}
-        <View style={styles.notesCanvas}>
-          <View style={styles.gridBackground}>
-            {/* Stippled grid pattern */}
-            {Array.from({ length: 40 }).map((_, row) =>
-              Array.from({ length: 20 }).map((_, col) => (
+        <View
+          style={styles.notesCanvas}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            if (
+              viewportSizeRef.current.width !== width ||
+              viewportSizeRef.current.height !== height
+            ) {
+              viewportSizeRef.current = { width, height };
+              const { minX, maxX, minY, maxY } = getCanvasBounds();
+              const clampedX = clamp(canvasOffsetRef.current.x, minX, maxX);
+              const clampedY = clamp(canvasOffsetRef.current.y, minY, maxY);
+              if (
+                clampedX !== canvasOffsetRef.current.x ||
+                clampedY !== canvasOffsetRef.current.y
+              ) {
+                canvasOffsetRef.current = { x: clampedX, y: clampedY };
+                canvasBaseOffset.setValue(canvasOffsetRef.current);
+              }
+            }
+          }}
+        >
+          <Animated.View
+            style={[
+              styles.canvasContent,
+              {
+                width: CANVAS_WIDTH,
+                height: CANVAS_HEIGHT,
+                transform: [
+                  { translateX: Animated.add(canvasBaseOffset.x, canvasPan.x) },
+                  { translateY: Animated.add(canvasBaseOffset.y, canvasPan.y) },
+                ],
+              },
+            ]}
+            {...canvasPanResponder.panHandlers}
+          >
+            <View style={styles.gridBackground}>
+              {gridDots.map(dot => (
                 <View
-                  key={`dot-${row}-${col}`}
+                  key={dot.key}
                   style={[
                     styles.gridDot,
-                    { top: row * 40, left: col * 40 }
+                    { top: dot.top, left: dot.left }
                   ]}
                 />
-              ))
-            )}
-          </View>
+              ))}
+            </View>
 
-          {/* Render notes */}
-          {notes.map(note => {
-            const category = NOTE_CATEGORIES.find(c => c.id === note.category);
-            const panResponder = getNotePanResponder(note);
-            const pan = notePanValues[note.id];
-            const isDragging = draggingNoteId === note.id;
+            {/* Render notes */}
+            {notes.map(note => {
+              const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+              const panResponder = getNotePanResponder(note);
+              const pan = notePanValues[note.id];
+              const isDragging = draggingNoteId === note.id;
 
-            return (
-              <NoteCard
-                key={note.id}
-                note={note}
-                category={category}
-                panResponder={panResponder}
-                pan={pan}
-                isDragging={isDragging}
-              />
-            );
-          })}
+              return (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  category={category}
+                  panResponder={panResponder}
+                  pan={pan}
+                  isDragging={isDragging}
+                  onLayout={getNoteLayoutHandler(note.id)}
+                />
+              );
+            })}
+          </Animated.View>
 
           {/* Floating Close Button */}
           <TouchableOpacity
@@ -816,7 +997,15 @@ export default function WorkspaceScreen({ navigation, route }) {
             <TouchableOpacity
               style={styles.floatingNewNoteButton}
               onPress={() => {
-                setTapPosition({ x: SCREEN_WIDTH / 2 - 100, y: 200 });
+                const { width: viewportWidth, height: viewportHeight } = viewportSizeRef.current;
+                const viewportCenterX = -canvasOffsetRef.current.x + (viewportWidth / 2) - (NOTE_CARD_WIDTH / 2);
+                const viewportCenterY = -canvasOffsetRef.current.y + (viewportHeight / 2) - (NOTE_CARD_MIN_HEIGHT / 2);
+                const maxX = Math.max(0, CANVAS_WIDTH - NOTE_CARD_WIDTH);
+                const maxY = Math.max(0, CANVAS_HEIGHT - NOTE_CARD_MIN_HEIGHT);
+                setTapPosition({
+                  x: clamp(viewportCenterX, 0, maxX),
+                  y: clamp(viewportCenterY, 0, maxY),
+                });
                 setCurrentNote(null);
                 setNoteTitle('');
                 setNoteCategory('feature');
@@ -1295,6 +1484,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  canvasContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   floatingCloseButton: {
     position: 'absolute',
@@ -1362,7 +1557,7 @@ const styles = StyleSheet.create({
   },
   noteCard: {
     position: 'absolute',
-    width: 200,
+    width: NOTE_CARD_WIDTH,
     backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 12,
