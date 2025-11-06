@@ -36,10 +36,14 @@ export default function ChatScreen({ navigation, route }) {
   ]);
   const [inputText, setInputText] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [showCategorySelection, setShowCategorySelection] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [currentIdeaId, setCurrentIdeaId] = useState(ideaId);
   const [firstUserMessage, setFirstUserMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const flatListRef = useRef(null);
+
+  const categories = ['App', 'Product', 'Service', 'Software'];
 
   const quickReplies = [
     'Summarize & analyze',
@@ -94,16 +98,16 @@ export default function ChatScreen({ navigation, route }) {
       }
     }
 
-    // Simulate AI response (will be replaced with actual OpenAI integration via Cloud Functions)
+    // Simulate AI response asking for category
     setTimeout(() => {
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content:
-          'Got it — sounds like an interesting idea! Would you like me to summarize and analyze this concept?',
+          'Got it — sounds like an interesting idea! What category does this fall under?',
       };
       setMessages((prev) => [...prev, aiMessage]);
-      setShowQuickReplies(true);
+      setShowCategorySelection(true);
     }, 1000);
   };
 
@@ -111,6 +115,30 @@ export default function ChatScreen({ navigation, route }) {
     // Generate a title from the first message (max 50 chars)
     const words = text.split(' ').slice(0, 8).join(' ');
     return words.length > 50 ? words.substring(0, 47) + '...' : words;
+  };
+
+  const handleCategorySelection = (category) => {
+    setSelectedCategory(category);
+    setShowCategorySelection(false);
+
+    // Add category selection as a user message
+    const categoryMessage = {
+      id: (Date.now()).toString(),
+      role: 'user',
+      content: category,
+    };
+    setMessages((prev) => [...prev, categoryMessage]);
+
+    // AI confirms and asks next steps
+    setTimeout(() => {
+      const aiMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `Perfect! I've categorized this as a ${category}. Would you like me to analyze it?`,
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      setShowQuickReplies(true);
+    }, 800);
   };
 
   const handleQuickReply = async (reply) => {
@@ -124,7 +152,7 @@ export default function ChatScreen({ navigation, route }) {
         const newIdeaId = await createIdea(user.uid, {
           title,
           originalInput: firstUserMessage,
-          tags: ['Uncategorized'], // Will be updated by AI
+          tags: [selectedCategory || 'Uncategorized'], // Use selected category
           status: 'active',
           analyzing: true, // Flag to show in-progress state
         });
@@ -152,7 +180,7 @@ export default function ChatScreen({ navigation, route }) {
         const newIdeaId = await createIdea(user.uid, {
           title,
           originalInput: firstUserMessage,
-          tags: ['Uncategorized'],
+          tags: [selectedCategory || 'Uncategorized'], // Use selected category
           status: 'active',
         });
 
@@ -248,6 +276,21 @@ export default function ChatScreen({ navigation, route }) {
           flatListRef.current?.scrollToEnd({ animated: true })
         }
       />
+
+      {/* Category Selection */}
+      {showCategorySelection && (
+        <View style={styles.quickRepliesContainer}>
+          {categories.map((category, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.categoryChip}
+              onPress={() => handleCategorySelection(category)}
+            >
+              <Text style={styles.categoryText}>{category}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Quick Replies */}
       {showQuickReplies && (
@@ -348,6 +391,19 @@ const styles = StyleSheet.create({
     color: Colors.accent1,
     fontSize: 14,
     fontWeight: '500',
+  },
+  categoryChip: {
+    backgroundColor: Colors.accent1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  categoryText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   savingContainer: {
     flexDirection: 'row',
