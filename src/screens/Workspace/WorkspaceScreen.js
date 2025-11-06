@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { getIdea } from '../../services/firestore';
@@ -341,10 +343,18 @@ export default function WorkspaceScreen({ navigation, route }) {
   );
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       <StatusBar barStyle="light-content" />
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.ideaTitle}>{idea.title}</Text>
@@ -395,7 +405,7 @@ export default function WorkspaceScreen({ navigation, route }) {
           <Text style={styles.continueChatText}>Continue Chat</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -436,6 +446,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 20,
   },
   header: {
     padding: 16,
