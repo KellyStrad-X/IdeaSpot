@@ -159,18 +159,18 @@ async function generateActionableInsightsCard(ideaText) {
     messages: [
       {
         role: 'system',
-        content: `You are a business strategy advisor. Generate 5-7 actionable insights to develop this idea into a viable business.
+        content: `You are a business strategy advisor. Generate exactly 5 high-impact actionable insights to develop this idea into a viable business.
 
-Focus on:
-- Market validation strategies
-- Business model considerations
-- Key strategic decisions to make
-- Risk mitigation approaches
-- Growth and scaling insights
+Focus on the MOST IMPORTANT, HIGH-TICKET items:
+- Critical market validation strategies
+- Essential business model decisions
+- Key strategic moves that matter most
+- Major risk mitigation priorities
+- High-leverage growth opportunities
 
-Provide GENERAL, STRATEGIC advice (not just 48-hour tasks). Be consistent in tone and concise in delivery. Each insight should be practical and immediately useful.
+Prioritize insights that will have the biggest impact. Be strategic and concise. Each insight should be practical and immediately useful.
 
-Return ONLY a JSON object with an "insights" array. Each insight should have:
+Return ONLY a JSON object with an "insights" array of exactly 5 items. Each insight should have:
 - title (string): Clear, concise heading
 - advice (string): 2-3 sentences of actionable guidance
 - category (string): One of "validation", "business-model", "strategy", "risk", "growth"`,
@@ -260,7 +260,7 @@ async function generateUserScenariosCard(ideaText) {
     messages: [
       {
         role: 'system',
-        content: `You are a UX researcher and user journey expert. Generate 3-4 realistic user scenarios that demonstrate how different people would use this idea to solve their problems.
+        content: `You are a UX researcher and user journey expert. Generate 2 realistic user scenarios that demonstrate how different people would use this idea to solve their problems.
 
 For each scenario:
 - Create a specific persona (name, role, context)
@@ -333,8 +333,8 @@ Return ONLY a JSON object with:
 async function generateConceptBranding(ideaText) {
   const openai = getOpenAI();
 
-  // Generate business name and slogan in parallel
-  const [nameResponse, sloganResponse] = await Promise.all([
+  // Generate business name and elevator pitch in parallel
+  const [nameResponse, pitchResponse] = await Promise.all([
     openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -366,17 +366,20 @@ Return ONLY a JSON object with:
       messages: [
         {
           role: 'system',
-          content: `You are a copywriter specializing in brand taglines. Create a compelling slogan for this business idea.
+          content: `You are a pitch expert specializing in elevator pitches. Create a compelling, concise elevator pitch for this business idea.
 
-The slogan should:
-- Be 3-8 words maximum
-- Capture the core benefit or differentiation
-- Be memorable and catchy
-- Use active, benefit-focused language
-- Avoid being too generic
+The elevator pitch should:
+- Be 2-4 sentences (approximately 30-50 words)
+- Clearly explain what the business does
+- Highlight the key problem it solves
+- Convey the unique value proposition
+- Be conversational yet professional
+- Make someone want to learn more
+
+Think of it as what you'd say in a 30-second elevator ride to spark interest.
 
 Return ONLY a JSON object with:
-- slogan (string): The tagline`,
+- elevatorPitch (string): The 2-4 sentence pitch`,
         },
         {
           role: 'user',
@@ -389,12 +392,12 @@ Return ONLY a JSON object with:
   ]);
 
   const nameData = JSON.parse(nameResponse.choices[0].message.content);
-  const sloganData = JSON.parse(sloganResponse.choices[0].message.content);
+  const pitchData = JSON.parse(pitchResponse.choices[0].message.content);
 
   return {
     name: nameData.name,
     nameRationale: nameData.rationale,
-    slogan: sloganData.slogan,
+    elevatorPitch: pitchData.elevatorPitch,
   };
 }
 
@@ -614,7 +617,7 @@ Return ONLY a JSON object with:
     await ideaRef.update({
       'cards.conceptBranding.name': nameData.name,
       'cards.conceptBranding.nameRationale': nameData.rationale,
-      'cards.conceptBranding.slogan': currentBranding.slogan || '', // Keep existing slogan
+      'cards.conceptBranding.elevatorPitch': currentBranding.elevatorPitch || '', // Keep existing elevator pitch
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
