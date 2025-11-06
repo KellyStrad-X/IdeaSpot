@@ -18,7 +18,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { getIdea, updateIdea } from '../../services/firestore';
+import {
+  getIdea,
+  updateIdea,
+  createCanvas,
+  updateCanvas,
+  setCurrentCanvas,
+  migrateNotesToCanvas
+} from '../../services/firestore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -124,6 +131,16 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [notesVisible, setNotesVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
+  // Canvas state
+  const [canvases, setCanvases] = useState([]);
+  const [currentCanvasId, setCurrentCanvasIdState] = useState(null);
+  const [canvasPickerVisible, setCanvasPickerVisible] = useState(false);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renamingCanvasId, setRenamingCanvasId] = useState(null);
+  const [newCanvasName, setNewCanvasName] = useState('');
+  const canvasZoomAnim = useRef(new Animated.Value(1)).current;
+  const canvasPickerAnim = useRef(new Animated.Value(0)).current;
+
   // Notes canvas state
   const [notes, setNotes] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -174,18 +191,36 @@ export default function WorkspaceScreen({ navigation, route }) {
 
     const loadIdea = async () => {
       try {
-        const ideaData = await getIdea(ideaId);
+        let ideaData = await getIdea(ideaId);
         if (ideaData) {
+          // Migrate to canvas structure if needed
+          await migrateNotesToCanvas(ideaId);
+
+          // Reload idea data after migration
+          ideaData = await getIdea(ideaId);
+
           setIdea(ideaData);
+
           // Populate branding fields if they exist
           if (ideaData.cards?.conceptBranding) {
             setBusinessName(ideaData.cards.conceptBranding.name || '');
             setElevatorPitch(ideaData.cards.conceptBranding.elevatorPitch || '');
           }
-          // Load notes from Firestore
-          if (ideaData.notes && Array.isArray(ideaData.notes)) {
-            console.log('📥 LOADING NOTES FROM FIRESTORE:', ideaData.notes);
-            setNotes(ideaData.notes);
+
+          // Load canvases
+          if (ideaData.canvases && Array.isArray(ideaData.canvases)) {
+            console.log('📥 LOADING CANVASES FROM FIRESTORE:', ideaData.canvases);
+            setCanvases(ideaData.canvases);
+
+            // Set current canvas
+            const activeCanvasId = ideaData.currentCanvasId || ideaData.canvases[0]?.id;
+            setCurrentCanvasIdState(activeCanvasId);
+
+            // Load notes for current canvas
+            const activeCanvas = ideaData.canvases.find(c => c.id === activeCanvasId);
+            if (activeCanvas && activeCanvas.notes) {
+              setNotes(activeCanvas.notes);
+            }
           }
         } else {
           Alert.alert('Error', 'Idea not found');
@@ -203,10 +238,10 @@ export default function WorkspaceScreen({ navigation, route }) {
     loadIdea();
   }, [ideaId]);
 
-  // Save notes to Firestore whenever they change
+  // Save notes to current canvas whenever they change
   useEffect(() => {
     // Skip saving on initial mount and when idea hasn't loaded yet
-    if (!idea || !ideaId) return;
+    if (!idea || !ideaId || !currentCanvasId) return;
 
     // CRITICAL: Do NOT save during active drag to prevent re-renders and flickering
     if (draggingNoteId !== null) {
@@ -216,13 +251,14 @@ export default function WorkspaceScreen({ navigation, route }) {
 
     const saveNotes = async () => {
       try {
-        console.log('=== SAVING NOTES TO FIRESTORE ===');
+        console.log('=== SAVING NOTES TO CANVAS ===');
+        console.log('Canvas ID:', currentCanvasId);
         console.log('Notes being saved:', JSON.stringify(notes, null, 2));
-        await updateIdea(ideaId, { notes });
-        console.log('Notes saved successfully');
+        await updateCanvas(ideaId, currentCanvasId, { notes });
+        console.log('Notes saved successfully to canvas');
         justFinishedDrag.current = false; // Reset flag after save
       } catch (error) {
-        console.error('Error saving notes:', error);
+        console.error('Error saving notes to canvas:', error);
         // Optionally show error to user, but don't block UI
       }
     };
@@ -231,7 +267,7 @@ export default function WorkspaceScreen({ navigation, route }) {
     const delay = justFinishedDrag.current ? 0 : 500;
     const timeoutId = setTimeout(saveNotes, delay);
     return () => clearTimeout(timeoutId);
-  }, [notes, ideaId, idea, draggingNoteId]);
+  }, [notes, ideaId, idea, currentCanvasId, draggingNoteId]);
 
   // Format date for display
   const formatDate = (timestamp) => {
@@ -257,6 +293,116 @@ export default function WorkspaceScreen({ navigation, route }) {
       tension: 65,
       friction: 10,
     }).start();
+  };
+
+  // Canvas management functions
+  const toggleCanvasPicker = () => {
+    if (canvasPickerVisible) {
+      // Close canvas picker - zoom back in
+      Animated.parallel([
+        Animated.spring(canvasZoomAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 8,
+        }),
+        Animated.timing(canvasPickerAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setCanvasPickerVisible(false);
+      });
+    } else {
+      // Open canvas picker - zoom out
+      setCanvasPickerVisible(true);
+      Animated.parallel([
+        Animated.spring(canvasZoomAnim, {
+          toValue: 0.85,
+          useNativeDriver: true,
+          tension: 50,
+          friction: 8,
+        }),
+        Animated.timing(canvasPickerAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  const handleCreateCanvas = async () => {
+    try {
+      const canvasNumber = canvases.length + 1;
+      const newCanvas = await createCanvas(ideaId, `Canvas ${canvasNumber}`);
+      setCanvases([...canvases, newCanvas]);
+      // Switch to new canvas
+      await handleSwitchCanvas(newCanvas.id);
+      console.log('✅ Created new canvas:', newCanvas);
+    } catch (error) {
+      console.error('Error creating canvas:', error);
+      Alert.alert('Error', 'Failed to create new canvas');
+    }
+  };
+
+  const handleSwitchCanvas = async (canvasId) => {
+    if (canvasId === currentCanvasId) {
+      // Just close picker if selecting current canvas
+      toggleCanvasPicker();
+      return;
+    }
+
+    try {
+      // Save current canvas notes before switching
+      if (currentCanvasId) {
+        await updateCanvas(ideaId, currentCanvasId, { notes });
+      }
+
+      // Set new current canvas
+      await setCurrentCanvas(ideaId, canvasId);
+      setCurrentCanvasIdState(canvasId);
+
+      // Load notes for new canvas
+      const canvas = canvases.find(c => c.id === canvasId);
+      if (canvas) {
+        setNotes(canvas.notes || []);
+      }
+
+      // Close picker
+      toggleCanvasPicker();
+
+      console.log('✅ Switched to canvas:', canvasId);
+    } catch (error) {
+      console.error('Error switching canvas:', error);
+      Alert.alert('Error', 'Failed to switch canvas');
+    }
+  };
+
+  const handleRenameCanvas = (canvasId, currentName) => {
+    setRenamingCanvasId(canvasId);
+    setNewCanvasName(currentName);
+    setRenameModalVisible(true);
+  };
+
+  const handleSaveCanvasRename = async () => {
+    if (newCanvasName && newCanvasName.trim()) {
+      try {
+        await updateCanvas(ideaId, renamingCanvasId, { name: newCanvasName.trim() });
+        // Update local state
+        setCanvases(canvases.map(c =>
+          c.id === renamingCanvasId ? { ...c, name: newCanvasName.trim() } : c
+        ));
+        console.log('✅ Renamed canvas:', renamingCanvasId, 'to', newCanvasName);
+        setRenameModalVisible(false);
+        setRenamingCanvasId(null);
+        setNewCanvasName('');
+      } catch (error) {
+        console.error('Error renaming canvas:', error);
+        Alert.alert('Error', 'Failed to rename canvas');
+      }
+    }
   };
 
   const handleSaveNote = () => {
@@ -923,8 +1069,16 @@ export default function WorkspaceScreen({ navigation, route }) {
           }
         ]}
       >
-        {/* Canvas with stippled grid */}
-        <View style={styles.notesCanvas}>
+        {/* Canvas with stippled grid - wrapped with zoom animation */}
+        <Animated.View
+          style={[
+            styles.canvasContainer,
+            {
+              transform: [{ scale: canvasZoomAnim }],
+            }
+          ]}
+        >
+          <View style={styles.notesCanvas}>
           <View style={styles.gridBackground}>
             {gridDots.map(dot => (
               <View
@@ -970,6 +1124,22 @@ export default function WorkspaceScreen({ navigation, route }) {
 
           {/* Floating Action Buttons Container */}
           <View style={styles.floatingActionsContainer}>
+            {/* Canvas Stack Button */}
+            <TouchableOpacity
+              style={styles.floatingCanvasButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                toggleCanvasPicker();
+              }}
+            >
+              <Ionicons name="layers-outline" size={20} color={Colors.textPrimary} />
+              {canvases.length > 1 && (
+                <View style={styles.canvasCountBadge}>
+                  <Text style={styles.canvasCountText}>{canvases.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             {/* Import Button (Placeholder) */}
             <TouchableOpacity
               style={styles.floatingImportButton}
@@ -999,7 +1169,80 @@ export default function WorkspaceScreen({ navigation, route }) {
               <Ionicons name="add" size={32} color={Colors.textPrimary} />
             </TouchableOpacity>
           </View>
-        </View>
+          </View>
+        </Animated.View>
+
+        {/* Canvas Picker Overlay */}
+        {canvasPickerVisible && (
+          <Animated.View
+            style={[
+              styles.canvasPickerOverlay,
+              {
+                opacity: canvasPickerAnim,
+              }
+            ]}
+          >
+            <View style={styles.canvasPickerContainer}>
+              <Text style={styles.canvasPickerTitle}>Your Canvases</Text>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.canvasPickerScroll}
+              >
+                {canvases.map((canvas, index) => {
+                  const isActive = canvas.id === currentCanvasId;
+                  return (
+                    <TouchableOpacity
+                      key={canvas.id}
+                      style={[
+                        styles.canvasThumbnail,
+                        isActive && styles.canvasThumbnailActive
+                      ]}
+                      onPress={() => handleSwitchCanvas(canvas.id)}
+                      onLongPress={() => handleRenameCanvas(canvas.id, canvas.name)}
+                    >
+                      <View style={styles.canvasThumbnailContent}>
+                        {/* Mini representation of canvas */}
+                        <View style={styles.canvasMiniGrid}>
+                          {canvas.notes && canvas.notes.slice(0, 6).map((note, i) => (
+                            <View
+                              key={note.id}
+                              style={[
+                                styles.canvasMiniNote,
+                                {
+                                  backgroundColor: NOTE_CATEGORIES.find(c => c.id === note.category)?.color || Colors.accent1,
+                                }
+                              ]}
+                            />
+                          ))}
+                        </View>
+                        <Text style={styles.canvasThumbnailName}>{canvas.name}</Text>
+                        <Text style={styles.canvasThumbnailNoteCount}>
+                          {canvas.notes?.length || 0} notes
+                        </Text>
+                      </View>
+                      {isActive && (
+                        <View style={styles.activeIndicator}>
+                          <Ionicons name="checkmark-circle" size={24} color="#27AE60" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {/* Add New Canvas Button */}
+                <TouchableOpacity
+                  style={styles.addCanvasButton}
+                  onPress={handleCreateCanvas}
+                >
+                  <Ionicons name="add-circle-outline" size={48} color={Colors.accent1} />
+                  <Text style={styles.addCanvasText}>New Canvas</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </Animated.View>
+        )}
       </Animated.View>
 
       {/* Add/Edit Note Modal */}
@@ -1149,6 +1392,53 @@ export default function WorkspaceScreen({ navigation, route }) {
                 <TouchableOpacity
                   style={[styles.modalButton, styles.modalSaveButton]}
                   onPress={handleSaveNote}
+                >
+                  <Text style={styles.modalSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Rename Canvas Modal */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Rename Canvas</Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Canvas name..."
+                placeholderTextColor={Colors.textTertiary}
+                value={newCanvasName}
+                onChangeText={setNewCanvasName}
+                autoFocus
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setRenameModalVisible(false);
+                    setRenamingCanvasId(null);
+                    setNewCanvasName('');
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSaveButton]}
+                  onPress={handleSaveCanvasRename}
                 >
                   <Text style={styles.modalSaveText}>Save</Text>
                 </TouchableOpacity>
@@ -1511,6 +1801,38 @@ const styles = StyleSheet.create({
     gap: 12,
     zIndex: 2000,
   },
+  floatingCanvasButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#9B59B6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+    position: 'relative',
+  },
+  canvasCountBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#E74C3C',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.background,
+  },
+  canvasCountText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
   floatingImportButton: {
     width: 48,
     height: 48,
@@ -1867,5 +2189,96 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     fontWeight: '500',
+  },
+  canvasContainer: {
+    flex: 1,
+  },
+  canvasPickerOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 240,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    zIndex: 3000,
+  },
+  canvasPickerContainer: {
+    flex: 1,
+    paddingVertical: 20,
+  },
+  canvasPickerTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  canvasPickerScroll: {
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    gap: 16,
+  },
+  canvasThumbnail: {
+    width: 160,
+    height: 140,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    overflow: 'hidden',
+    marginRight: 16,
+  },
+  canvasThumbnailActive: {
+    borderColor: '#27AE60',
+    borderWidth: 3,
+  },
+  canvasThumbnailContent: {
+    flex: 1,
+    padding: 12,
+  },
+  canvasMiniGrid: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 8,
+  },
+  canvasMiniNote: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+  },
+  canvasThumbnailName: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  canvasThumbnailNoteCount: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  addCanvasButton: {
+    width: 160,
+    height: 140,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCanvasText: {
+    color: Colors.accent1,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
   },
 });
