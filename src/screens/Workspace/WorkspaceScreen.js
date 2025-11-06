@@ -140,6 +140,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [newCanvasName, setNewCanvasName] = useState('');
   const [currentCarouselIndex, setCurrentCarouselIndex] = useState(0);
   const canvasZoomAnim = useRef(new Animated.Value(1)).current;
+  const canvasLabelScaleAnim = useRef(new Animated.Value(1)).current;
 
   // Notes canvas state
   const [notes, setNotes] = useState([]);
@@ -155,6 +156,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const notePanResponders = useRef({}).current;
   const noteResizePanResponders = useRef({}).current;
   const justFinishedDrag = useRef(false);
+  const carouselScrollRef = useRef(null);
 
   const gridDots = useMemo(() => {
     const rows = Math.ceil(CANVAS_HEIGHT / GRID_SPACING);
@@ -301,6 +303,21 @@ export default function WorkspaceScreen({ navigation, route }) {
     }).start();
   };
 
+  // Scroll carousel to current canvas when opening
+  useEffect(() => {
+    if (canvasPickerVisible && carouselScrollRef.current) {
+      const currentIndex = canvases.findIndex(c => c.id === currentCanvasId);
+      if (currentIndex >= 0) {
+        setTimeout(() => {
+          carouselScrollRef.current?.scrollTo({
+            x: currentIndex * SCREEN_WIDTH,
+            animated: false,
+          });
+        }, 100);
+      }
+    }
+  }, [canvasPickerVisible, currentCanvasId, canvases]);
+
   // Canvas management functions
   const toggleCanvasPicker = () => {
     if (canvasPickerVisible) {
@@ -314,7 +331,9 @@ export default function WorkspaceScreen({ navigation, route }) {
         setCanvasPickerVisible(false);
       });
     } else {
-      // Open picker - zoom out
+      // Open picker - zoom out and set carousel to current canvas
+      const currentIndex = canvases.findIndex(c => c.id === currentCanvasId);
+      setCurrentCarouselIndex(currentIndex >= 0 ? currentIndex : 0);
       setCanvasPickerVisible(true);
       Animated.spring(canvasZoomAnim, {
         toValue: 0.92,
@@ -328,7 +347,18 @@ export default function WorkspaceScreen({ navigation, route }) {
   const handleCarouselScroll = (event) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SCREEN_WIDTH);
-    setCurrentCarouselIndex(index);
+
+    if (index !== currentCarouselIndex) {
+      // Trigger pop animation when switching canvases
+      canvasLabelScaleAnim.setValue(0.85);
+      Animated.spring(canvasLabelScaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 7,
+      }).start();
+      setCurrentCarouselIndex(index);
+    }
   };
 
   const handleCreateCanvas = async () => {
@@ -1096,8 +1126,20 @@ export default function WorkspaceScreen({ navigation, route }) {
       >
         {canvasPickerVisible ? (
           /* Canvas Carousel View - Show all canvases horizontally */
-          <Animated.View style={{ flex: 1, transform: [{ scale: canvasZoomAnim }] }}>
-            <ScrollView
+          <View style={{ flex: 1 }}>
+            {/* Canvas Name Header - Shows current canvas info */}
+            <Animated.View style={[styles.carouselHeader, { transform: [{ scale: canvasLabelScaleAnim }] }]}>
+              <Text style={styles.carouselCanvasName}>
+                {currentCarouselIndex < canvases.length ? canvases[currentCarouselIndex]?.name : 'New Canvas'}
+              </Text>
+              <Text style={styles.carouselNoteCount}>
+                {currentCarouselIndex < canvases.length ? `${canvases[currentCarouselIndex]?.notes?.length || 0} notes` : ''}
+              </Text>
+            </Animated.View>
+
+            <Animated.View style={{ flex: 1, transform: [{ scale: canvasZoomAnim }] }}>
+              <ScrollView
+              ref={carouselScrollRef}
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
@@ -1172,6 +1214,37 @@ export default function WorkspaceScreen({ navigation, route }) {
                         <Text style={styles.canvasNameText}>{canvas.name}</Text>
                         <Text style={styles.canvasNoteCountText}>{canvas.notes?.length || 0} notes</Text>
                       </View>
+
+                      {/* Floating Buttons Preview (non-interactive) */}
+                      <View pointerEvents="none">
+                        {/* Floating Close Button */}
+                        <View style={styles.floatingCloseButton}>
+                          <Ionicons name="close" size={28} color="#fff" />
+                        </View>
+
+                        {/* Floating Action Buttons Container */}
+                        <View style={styles.floatingActionsContainer}>
+                          {/* Canvas Stack Button */}
+                          <View style={styles.floatingCanvasButton}>
+                            <Ionicons name="layers-outline" size={20} color={Colors.textPrimary} />
+                            {canvases.length > 1 && (
+                              <View style={styles.canvasCountBadge}>
+                                <Text style={styles.canvasCountText}>{canvases.length}</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Import Button */}
+                          <View style={styles.floatingImportButton}>
+                            <Ionicons name="cloud-upload-outline" size={20} color={Colors.textPrimary} />
+                          </View>
+
+                          {/* New Note Button */}
+                          <View style={styles.floatingNewNoteButton}>
+                            <Ionicons name="add" size={32} color={Colors.textPrimary} />
+                          </View>
+                        </View>
+                      </View>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1193,21 +1266,22 @@ export default function WorkspaceScreen({ navigation, route }) {
                 <Text style={styles.addNewCanvasText}>Create New Canvas</Text>
               </View>
             </TouchableOpacity>
-          </ScrollView>
+              </ScrollView>
 
-          {/* Pagination Dots */}
-          <View style={styles.paginationContainer}>
-            {[...canvases, { id: 'add-new' }].map((canvas, index) => (
-              <View
-                key={canvas.id}
-                style={[
-                  styles.paginationDot,
-                  index === currentCarouselIndex && styles.paginationDotActive
-                ]}
-              />
-            ))}
+              {/* Pagination Dots */}
+              <View style={styles.paginationContainer}>
+                {[...canvases, { id: 'add-new' }].map((canvas, index) => (
+                  <View
+                    key={canvas.id}
+                    style={[
+                      styles.paginationDot,
+                      index === currentCarouselIndex && styles.paginationDotActive
+                    ]}
+                  />
+                ))}
+              </View>
+            </Animated.View>
           </View>
-        </Animated.View>
         ) : (
           /* Single Active Canvas View - Full zoom */
           <View style={styles.notesCanvas}>
@@ -2248,6 +2322,25 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 15,
     lineHeight: 24,
+    fontWeight: '500',
+  },
+  carouselHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    paddingTop: StatusBar.currentHeight + 12 || 48,
+    backgroundColor: Colors.background,
+  },
+  carouselCanvasName: {
+    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  carouselNoteCount: {
+    color: Colors.textSecondary,
+    fontSize: 15,
     fontWeight: '500',
   },
   canvasCarousel: {
