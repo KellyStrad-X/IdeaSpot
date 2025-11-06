@@ -1,16 +1,20 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Colors } from '../../constants/colors';
 
 export default function ExploreScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Explore</Text>
         <Text style={styles.subtitle}>Coming Soon</Text>
         <Text style={styles.description}>
           Discover new apps, products, services, and websites to inspire your next project.
         </Text>
+        <Image
+          source={require('../../../assets/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
     </View>
   );
@@ -27,12 +31,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
   subtitle: {
     fontSize: 24,
     color: Colors.textSecondary,
@@ -44,5 +42,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 300,
+    marginBottom: 40,
+  },
+  logo: {
+    width: 200,
+    height: 80,
+    opacity: 0.6,
   },
 });

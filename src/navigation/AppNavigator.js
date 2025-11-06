@@ -140,8 +140,15 @@ function DashboardStack() {
         name="Chat"
         component={ChatScreen}
         options={{
-          title: 'New Idea',
+          title: '',
           headerShown: true,
+          headerRight: () => (
+            <View style={{ marginRight: 16 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
+                NEW IDEA
+              </Text>
+            </View>
+          ),
         }}
       />
       <Stack.Screen
@@ -189,12 +196,13 @@ function ExploreStack() {
         name="ExploreHome"
         component={ExploreScreen}
         options={{
-          title: 'Explore',
+          title: 'EXPLORE',
           headerShown: true,
           headerTitleAlign: 'left',
           headerTitleStyle: {
-            fontWeight: '700',
+            fontWeight: '900',
             fontSize: 24,
+            letterSpacing: 1.5,
           },
         }}
       />
