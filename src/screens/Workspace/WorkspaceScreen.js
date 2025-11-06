@@ -265,6 +265,12 @@ export default function WorkspaceScreen({ navigation, route }) {
             isDragging = false;
             setDraggingNoteId(null);
 
+            // Get the current animated values (these are the actual drag deltas)
+            const dx = pan.x._value;
+            const dy = pan.y._value;
+
+            console.log('📍 Animated pan values - dx:', dx, 'dy:', dy);
+
             // Update note position in state
             // IMPORTANT: Look up current note position from state, not from closure
             setNotes(prevNotes => {
@@ -274,12 +280,12 @@ export default function WorkspaceScreen({ navigation, route }) {
                   console.log('=== DRAG RELEASE DEBUG ===');
                   console.log('Note ID:', note.id);
                   console.log('Current position from state:', n.position);
-                  console.log('gestureState.dx:', gestureState.dx);
-                  console.log('gestureState.dy:', gestureState.dy);
+                  console.log('Pan animation dx:', dx);
+                  console.log('Pan animation dy:', dy);
 
                   // Use current position from state, not stale closure variable
-                  const newX = n.position.x + gestureState.dx;
-                  const newY = n.position.y + gestureState.dy;
+                  const newX = n.position.x + dx;
+                  const newY = n.position.y + dy;
 
                   console.log('Calculated new position:', { x: newX, y: newY });
 
