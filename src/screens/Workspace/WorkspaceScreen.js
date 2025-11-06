@@ -118,16 +118,6 @@ export default function WorkspaceScreen({ navigation, route }) {
     }).start();
   };
 
-  const handleCanvasTap = (event) => {
-    const { locationX, locationY } = event.nativeEvent;
-    setTapPosition({ x: locationX, y: locationY });
-    setCurrentNote(null);
-    setNoteTitle('');
-    setNoteCategory('feature');
-    setNoteContent('');
-    setModalVisible(true);
-  };
-
   const handleSaveNote = () => {
     if (!noteTitle.trim()) {
       Alert.alert('Error', 'Please enter a note title');
@@ -627,10 +617,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         ]}
       >
         {/* Canvas with stippled grid */}
-        <Pressable
-          style={styles.notesCanvas}
-          onPress={handleCanvasTap}
-        >
+        <View style={styles.notesCanvas}>
           <View style={styles.gridBackground}>
             {/* Stippled grid pattern */}
             {Array.from({ length: 40 }).map((_, row) =>
@@ -710,8 +697,7 @@ export default function WorkspaceScreen({ navigation, route }) {
             {/* New Note Button */}
             <TouchableOpacity
               style={styles.floatingNewNoteButton}
-              onPress={(e) => {
-                e.stopPropagation();
+              onPress={() => {
                 setTapPosition({ x: SCREEN_WIDTH / 2 - 100, y: 200 });
                 setCurrentNote(null);
                 setNoteTitle('');
@@ -723,7 +709,7 @@ export default function WorkspaceScreen({ navigation, route }) {
               <Ionicons name="add" size={32} color={Colors.textPrimary} />
             </TouchableOpacity>
           </View>
-        </Pressable>
+        </View>
       </Animated.View>
 
       {/* Add/Edit Note Modal */}
