@@ -23,8 +23,8 @@ import { getIdea } from '../../services/firestore';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const NOTE_CATEGORIES = [
-  { id: 'feature', label: 'Feature Idea', color: '#4A9EFF' },
-  { id: 'risk', label: 'Risk/Concern', color: '#FF6B6B' },
+  { id: 'feature', label: 'Feature', color: '#4A9EFF' },
+  { id: 'risk', label: 'Risk', color: '#FF6B6B' },
   { id: 'question', label: 'Question', color: '#FFD93D' },
   { id: 'insight', label: 'Insight', color: '#6BCF7F' },
   { id: 'todo', label: 'To-Do', color: '#A78BFA' },
@@ -48,6 +48,23 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [noteCategory, setNoteCategory] = useState('feature');
   const [noteContent, setNoteContent] = useState('');
   const [tapPosition, setTapPosition] = useState({ x: 0, y: 0 });
+
+  // Category-specific fields
+  const [featurePriority, setFeaturePriority] = useState('medium');
+  const [featureEffort, setFeatureEffort] = useState('medium');
+  const [featureStatus, setFeatureStatus] = useState('idea');
+  const [riskSeverity, setRiskSeverity] = useState(5);
+  const [riskLikelihood, setRiskLikelihood] = useState('medium');
+  const [riskMitigation, setRiskMitigation] = useState('');
+  const [questionUrgency, setQuestionUrgency] = useState('medium');
+  const [questionBlocking, setQuestionBlocking] = useState(false);
+  const [questionWhoToAsk, setQuestionWhoToAsk] = useState('');
+  const [insightSource, setInsightSource] = useState('observation');
+  const [insightActionable, setInsightActionable] = useState(true);
+  const [insightImpact, setInsightImpact] = useState('medium');
+  const [todoPriority, setTodoPriority] = useState('medium');
+  const [todoDueDate, setTodoDueDate] = useState('');
+  const [todoStatus, setTodoStatus] = useState('not_started');
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -125,12 +142,36 @@ export default function WorkspaceScreen({ navigation, route }) {
       return;
     }
 
+    const categoryData = {};
+    if (noteCategory === 'feature') {
+      categoryData.priority = featurePriority;
+      categoryData.effort = featureEffort;
+      categoryData.status = featureStatus;
+    } else if (noteCategory === 'risk') {
+      categoryData.severity = riskSeverity;
+      categoryData.likelihood = riskLikelihood;
+      categoryData.mitigation = riskMitigation;
+    } else if (noteCategory === 'question') {
+      categoryData.urgency = questionUrgency;
+      categoryData.blocking = questionBlocking;
+      categoryData.whoToAsk = questionWhoToAsk;
+    } else if (noteCategory === 'insight') {
+      categoryData.source = insightSource;
+      categoryData.actionable = insightActionable;
+      categoryData.impact = insightImpact;
+    } else if (noteCategory === 'todo') {
+      categoryData.priority = todoPriority;
+      categoryData.dueDate = todoDueDate;
+      categoryData.status = todoStatus;
+    }
+
     const newNote = {
       id: currentNote?.id || Date.now().toString(),
       title: noteTitle,
       category: noteCategory,
       content: noteContent,
       position: currentNote?.position || tapPosition,
+      categoryData,
     };
 
     if (currentNote) {
@@ -142,10 +183,30 @@ export default function WorkspaceScreen({ navigation, route }) {
     }
 
     setModalVisible(false);
+    resetNoteFields();
+  };
+
+  const resetNoteFields = () => {
     setNoteTitle('');
     setNoteCategory('feature');
     setNoteContent('');
     setCurrentNote(null);
+    // Reset category-specific fields
+    setFeaturePriority('medium');
+    setFeatureEffort('medium');
+    setFeatureStatus('idea');
+    setRiskSeverity(5);
+    setRiskLikelihood('medium');
+    setRiskMitigation('');
+    setQuestionUrgency('medium');
+    setQuestionBlocking(false);
+    setQuestionWhoToAsk('');
+    setInsightSource('observation');
+    setInsightActionable(true);
+    setInsightImpact('medium');
+    setTodoPriority('medium');
+    setTodoDueDate('');
+    setTodoStatus('not_started');
   };
 
   const handleEditNote = (note) => {
@@ -153,6 +214,32 @@ export default function WorkspaceScreen({ navigation, route }) {
     setNoteTitle(note.title);
     setNoteCategory(note.category);
     setNoteContent(note.content);
+
+    // Load category-specific data
+    if (note.categoryData) {
+      if (note.category === 'feature') {
+        setFeaturePriority(note.categoryData.priority || 'medium');
+        setFeatureEffort(note.categoryData.effort || 'medium');
+        setFeatureStatus(note.categoryData.status || 'idea');
+      } else if (note.category === 'risk') {
+        setRiskSeverity(note.categoryData.severity || 5);
+        setRiskLikelihood(note.categoryData.likelihood || 'medium');
+        setRiskMitigation(note.categoryData.mitigation || '');
+      } else if (note.category === 'question') {
+        setQuestionUrgency(note.categoryData.urgency || 'medium');
+        setQuestionBlocking(note.categoryData.blocking || false);
+        setQuestionWhoToAsk(note.categoryData.whoToAsk || '');
+      } else if (note.category === 'insight') {
+        setInsightSource(note.categoryData.source || 'observation');
+        setInsightActionable(note.categoryData.actionable !== undefined ? note.categoryData.actionable : true);
+        setInsightImpact(note.categoryData.impact || 'medium');
+      } else if (note.category === 'todo') {
+        setTodoPriority(note.categoryData.priority || 'medium');
+        setTodoDueDate(note.categoryData.dueDate || '');
+        setTodoStatus(note.categoryData.status || 'not_started');
+      }
+    }
+
     setModalVisible(true);
   };
 
@@ -624,24 +711,249 @@ export default function WorkspaceScreen({ navigation, route }) {
 
               {/* Category Selector */}
               <Text style={styles.modalLabel}>Category</Text>
-              <View style={styles.categorySelector}>
+              <View style={styles.categoryBubbles}>
                 {NOTE_CATEGORIES.map(cat => (
                   <TouchableOpacity
                     key={cat.id}
                     style={[
-                      styles.categoryOption,
+                      styles.categoryBubble,
                       { backgroundColor: cat.color },
-                      noteCategory === cat.id && styles.categoryOptionSelected,
+                      noteCategory === cat.id && styles.categoryBubbleSelected,
                     ]}
                     onPress={() => setNoteCategory(cat.id)}
                   >
-                    <Text style={styles.categoryOptionText}>{cat.label}</Text>
-                    {noteCategory === cat.id && (
-                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                    )}
+                    <Text style={styles.categoryBubbleText}>{cat.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Category-Specific Fields */}
+              {noteCategory === 'feature' && (
+                <View style={styles.categoryFields}>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Priority:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['low', 'medium', 'high', 'critical'].map(p => (
+                        <TouchableOpacity
+                          key={p}
+                          style={[styles.segment, featurePriority === p && styles.segmentActive]}
+                          onPress={() => setFeaturePriority(p)}
+                        >
+                          <Text style={[styles.segmentText, featurePriority === p && styles.segmentTextActive]}>
+                            {p.charAt(0).toUpperCase() + p.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Effort:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['small', 'medium', 'large'].map(e => (
+                        <TouchableOpacity
+                          key={e}
+                          style={[styles.segment, featureEffort === e && styles.segmentActive]}
+                          onPress={() => setFeatureEffort(e)}
+                        >
+                          <Text style={[styles.segmentText, featureEffort === e && styles.segmentTextActive]}>
+                            {e.charAt(0).toUpperCase() + e.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Status:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['idea', 'planned', 'in_progress', 'shipped'].map(s => (
+                        <TouchableOpacity
+                          key={s}
+                          style={[styles.segment, featureStatus === s && styles.segmentActive]}
+                          onPress={() => setFeatureStatus(s)}
+                        >
+                          <Text style={[styles.segmentText, featureStatus === s && styles.segmentTextActive]}>
+                            {s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {noteCategory === 'risk' && (
+                <View style={styles.categoryFields}>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Severity: {riskSeverity}</Text>
+                    <View style={styles.sliderContainer}>
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => (
+                        <TouchableOpacity
+                          key={val}
+                          style={[
+                            styles.sliderDot,
+                            riskSeverity >= val && styles.sliderDotActive,
+                            { backgroundColor: riskSeverity >= val ? '#FF6B6B' : Colors.border }
+                          ]}
+                          onPress={() => setRiskSeverity(val)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Likelihood:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['low', 'medium', 'high'].map(l => (
+                        <TouchableOpacity
+                          key={l}
+                          style={[styles.segment, riskLikelihood === l && styles.segmentActive]}
+                          onPress={() => setRiskLikelihood(l)}
+                        >
+                          <Text style={[styles.segmentText, riskLikelihood === l && styles.segmentTextActive]}>
+                            {l.charAt(0).toUpperCase() + l.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <TextInput
+                    style={[styles.modalInput, styles.smallTextArea]}
+                    placeholder="Mitigation plan..."
+                    placeholderTextColor={Colors.textTertiary}
+                    value={riskMitigation}
+                    onChangeText={setRiskMitigation}
+                    multiline
+                    numberOfLines={2}
+                    textAlignVertical="top"
+                  />
+                </View>
+              )}
+
+              {noteCategory === 'question' && (
+                <View style={styles.categoryFields}>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Urgency:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['low', 'medium', 'high'].map(u => (
+                        <TouchableOpacity
+                          key={u}
+                          style={[styles.segment, questionUrgency === u && styles.segmentActive]}
+                          onPress={() => setQuestionUrgency(u)}
+                        >
+                          <Text style={[styles.segmentText, questionUrgency === u && styles.segmentTextActive]}>
+                            {u.charAt(0).toUpperCase() + u.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.checkboxRow}
+                    onPress={() => setQuestionBlocking(!questionBlocking)}
+                  >
+                    <View style={[styles.checkbox, questionBlocking && styles.checkboxChecked]}>
+                      {questionBlocking && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.checkboxLabel}>Blocking Decision</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Who to ask (optional)..."
+                    placeholderTextColor={Colors.textTertiary}
+                    value={questionWhoToAsk}
+                    onChangeText={setQuestionWhoToAsk}
+                  />
+                </View>
+              )}
+
+              {noteCategory === 'insight' && (
+                <View style={styles.categoryFields}>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Source:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['user_feedback', 'data', 'observation', 'research'].map(s => (
+                        <TouchableOpacity
+                          key={s}
+                          style={[styles.segment, insightSource === s && styles.segmentActive]}
+                          onPress={() => setInsightSource(s)}
+                        >
+                          <Text style={[styles.segmentText, insightSource === s && styles.segmentTextActive]}>
+                            {s === 'user_feedback' ? 'User' : s.charAt(0).toUpperCase() + s.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Impact:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['low', 'medium', 'high'].map(i => (
+                        <TouchableOpacity
+                          key={i}
+                          style={[styles.segment, insightImpact === i && styles.segmentActive]}
+                          onPress={() => setInsightImpact(i)}
+                        >
+                          <Text style={[styles.segmentText, insightImpact === i && styles.segmentTextActive]}>
+                            {i.charAt(0).toUpperCase() + i.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.checkboxRow}
+                    onPress={() => setInsightActionable(!insightActionable)}
+                  >
+                    <View style={[styles.checkbox, insightActionable && styles.checkboxChecked]}>
+                      {insightActionable && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                    <Text style={styles.checkboxLabel}>Actionable</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {noteCategory === 'todo' && (
+                <View style={styles.categoryFields}>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Priority:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['low', 'medium', 'high'].map(p => (
+                        <TouchableOpacity
+                          key={p}
+                          style={[styles.segment, todoPriority === p && styles.segmentActive]}
+                          onPress={() => setTodoPriority(p)}
+                        >
+                          <Text style={[styles.segmentText, todoPriority === p && styles.segmentTextActive]}>
+                            {p.charAt(0).toUpperCase() + p.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Status:</Text>
+                    <View style={styles.segmentedControl}>
+                      {['not_started', 'in_progress', 'blocked', 'done'].map(s => (
+                        <TouchableOpacity
+                          key={s}
+                          style={[styles.segment, todoStatus === s && styles.segmentActive]}
+                          onPress={() => setTodoStatus(s)}
+                        >
+                          <Text style={[styles.segmentText, todoStatus === s && styles.segmentTextActive]}>
+                            {s === 'not_started' ? 'Not Started' : s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Due date (optional)..."
+                    placeholderTextColor={Colors.textTertiary}
+                    value={todoDueDate}
+                    onChangeText={setTodoDueDate}
+                  />
+                </View>
+              )}
 
               {/* Content Input */}
               <TextInput
@@ -1122,25 +1434,108 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  categorySelector: {
+  categoryBubbles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryBubble: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  categoryBubbleSelected: {
+    borderColor: '#fff',
+  },
+  categoryBubbleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categoryFields: {
+    marginBottom: 16,
+  },
+  fieldRow: {
     marginBottom: 12,
   },
-  categoryOption: {
+  fieldLabel: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  segment: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  segmentActive: {
+    backgroundColor: Colors.accent1,
+    borderColor: Colors.accent1,
+  },
+  segmentText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  segmentTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  sliderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+    gap: 4,
+    marginTop: 8,
   },
-  categoryOptionSelected: {
+  sliderDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: Colors.border,
   },
-  categoryOptionText: {
-    color: '#fff',
+  sliderDotActive: {
+    borderColor: '#FF6B6B',
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.accent1,
+    borderColor: Colors.accent1,
+  },
+  checkboxLabel: {
+    color: Colors.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  smallTextArea: {
+    minHeight: 60,
   },
   modalActions: {
     flexDirection: 'row',
