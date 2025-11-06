@@ -76,7 +76,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         style={styles.cardHeader}
         onPress={() => toggleCard('summary')}
       >
-        <Text style={styles.cardTitle}>📝 Summary</Text>
+        <Text style={styles.cardTitle}>Summary</Text>
         <Text style={styles.expandIcon}>
           {expandedCard === 'summary' ? '−' : '+'}
         </Text>
@@ -131,7 +131,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         style={styles.cardHeader}
         onPress={() => toggleCard('actionableInsights')}
       >
-        <Text style={styles.cardTitle}>💡 Actionable Insights</Text>
+        <Text style={styles.cardTitle}>Actionable Insights</Text>
         <Text style={styles.expandIcon}>
           {expandedCard === 'actionableInsights' ? '−' : '+'}
         </Text>
@@ -166,7 +166,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         style={styles.cardHeader}
         onPress={() => toggleCard('userScenarios')}
       >
-        <Text style={styles.cardTitle}>👥 User Scenarios</Text>
+        <Text style={styles.cardTitle}>User Scenarios</Text>
         <Text style={styles.expandIcon}>
           {expandedCard === 'userScenarios' ? '−' : '+'}
         </Text>
@@ -216,7 +216,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         style={styles.cardHeader}
         onPress={() => toggleCard('monetization')}
       >
-        <Text style={styles.cardTitle}>💰 Monetization</Text>
+        <Text style={styles.cardTitle}>Monetization</Text>
         <Text style={styles.expandIcon}>
           {expandedCard === 'monetization' ? '−' : '+'}
         </Text>
@@ -286,7 +286,7 @@ export default function WorkspaceScreen({ navigation, route }) {
 
   const renderConceptBrandingSection = () => (
     <View style={styles.brandingSection}>
-      <Text style={styles.brandingSectionTitle}>🎨 Concept Branding</Text>
+      <Text style={styles.brandingSectionTitle}>Concept Branding</Text>
 
       {/* Business Name Field with Regen Button */}
       <View style={styles.section}>
@@ -402,7 +402,7 @@ export default function WorkspaceScreen({ navigation, route }) {
           style={styles.continueChatButton}
           onPress={() => navigation.navigate('Chat', { ideaId: idea.id })}
         >
-          <Text style={styles.continueChatText}>💬 Continue Chat</Text>
+          <Text style={styles.continueChatText}>Continue Chat</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    color: Colors.accent1,
+    color: Colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
@@ -673,9 +673,8 @@ const styles = StyleSheet.create({
   },
   // Actionable Insights styles
   insightHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   categoryBadge: {
@@ -683,6 +682,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    marginTop: 6,
   },
   categoryText: {
     color: Colors.background,
