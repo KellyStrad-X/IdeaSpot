@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,6 @@ import {
   Dimensions,
   Modal,
   PanResponder,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -27,9 +26,9 @@ const DOUBLE_TAP_DELAY = 220;
 const DRAG_ACTIVATION_THRESHOLD = 8;
 const NOTE_CARD_WIDTH = 200;
 const NOTE_CARD_MIN_HEIGHT = 140;
-const MIN_CANVAS_SCALE = 0.7;
-const MAX_CANVAS_SCALE = 2.2;
-const GRID_PATTERN_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAAAdElEQVR4nO3XIQ6AQAwF0YLcw67nBPi9MKg1CEiYn4CYcTXNS6q6tNaO+nHr14CnBNIE0gTSBNIE0gTSBNIE0uLA3vuW3BcFTlwSGQNeUSlkDDjG2O/mt0VPPFEpXFXV4tsJE0gTSBNIE0gTSBNIE0j7PfAEl50UTI4W3MEAAAAASUVORK5CYII=';
+const CANVAS_WIDTH = SCREEN_WIDTH * 2;
+const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
+const GRID_SPACING = 40;
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
@@ -108,196 +107,24 @@ export default function WorkspaceScreen({ navigation, route }) {
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
   const justFinishedDrag = useRef(false);
-  const canvasBaseOffset = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const canvasPan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const canvasScale = useRef(new Animated.Value(1)).current;
-  const canvasOffsetRef = useRef({ x: 0, y: 0 });
-  const canvasScaleRef = useRef(1);
-  const viewportSizeRef = useRef({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
-  const pinchGestureRef = useRef(null);
 
-  const updateCanvasOffset = (offsetX, offsetY) => {
-    canvasPan.setValue({
-      x: offsetX - canvasOffsetRef.current.x,
-      y: offsetY - canvasOffsetRef.current.y,
-    });
-    if (pinchGestureRef.current) {
-      pinchGestureRef.current.currentOffset = { x: offsetX, y: offsetY };
+  const gridDots = useMemo(() => {
+    const rows = Math.ceil(CANVAS_HEIGHT / GRID_SPACING);
+    const cols = Math.ceil(CANVAS_WIDTH / GRID_SPACING);
+    const dots = [];
+
+    for (let row = 0; row <= rows; row += 1) {
+      for (let col = 0; col <= cols; col += 1) {
+        dots.push({
+          key: `dot-${row}-${col}`,
+          top: row * GRID_SPACING,
+          left: col * GRID_SPACING,
+        });
+      }
     }
-  };
 
-  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-  const getDistance = (touch1, touch2) => {
-    const dx = touch1.pageX - touch2.pageX;
-    const dy = touch1.pageY - touch2.pageY;
-    return Math.sqrt((dx * dx) + (dy * dy));
-  };
-
-  const getCenter = (touches) => {
-    const touch1 = touches[0];
-    const touch2 = touches[1];
-    return {
-      x: (touch1.pageX + touch2.pageX) / 2,
-      y: (touch1.pageY + touch2.pageY) / 2,
-    };
-  };
-
-  const canvasPanResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length >= 2,
-    onStartShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
-    onMoveShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length >= 2,
-    onMoveShouldSetPanResponderCapture: (evt) => evt.nativeEvent.touches.length >= 2,
-    onPanResponderGrant: (evt) => {
-      if (evt.nativeEvent.touches.length < 2) {
-        return;
-      }
-
-      const touches = evt.nativeEvent.touches;
-      const distance = getDistance(touches[0], touches[1]);
-      if (distance <= 0) {
-        return;
-      }
-
-      const center = getCenter(touches);
-      const currentScale = canvasScaleRef.current;
-      const worldPoint = {
-        x: (center.x - canvasOffsetRef.current.x) / currentScale,
-        y: (center.y - canvasOffsetRef.current.y) / currentScale,
-      };
-
-      pinchGestureRef.current = {
-        mode: 'pinch',
-        initialDistance: distance,
-        initialScale: currentScale,
-        worldPoint,
-        currentScale,
-        currentOffset: { ...canvasOffsetRef.current },
-        lastCenter: center,
-      };
-
-      canvasPan.setValue({ x: 0, y: 0 });
-    },
-    onPanResponderMove: (evt) => {
-      const touches = evt.nativeEvent.touches;
-
-      if (touches.length >= 2) {
-        const [touch1, touch2] = touches;
-        const distance = getDistance(touch1, touch2);
-        if (distance <= 0) {
-          return;
-        }
-
-        const center = getCenter(touches);
-        const currentScale = canvasScaleRef.current;
-        const effectiveOffset =
-          (pinchGestureRef.current && pinchGestureRef.current.currentOffset) ||
-          canvasOffsetRef.current;
-        const worldPoint = {
-          x: (center.x - effectiveOffset.x) / currentScale,
-          y: (center.y - effectiveOffset.y) / currentScale,
-        };
-
-        if (!pinchGestureRef.current) {
-          pinchGestureRef.current = {
-            mode: 'pinch',
-            initialDistance: distance,
-            initialScale: currentScale,
-            worldPoint,
-            currentScale,
-            currentOffset: { ...canvasOffsetRef.current },
-            lastCenter: center,
-          };
-          canvasPan.setValue({ x: 0, y: 0 });
-        } else if (pinchGestureRef.current.mode !== 'pinch') {
-          pinchGestureRef.current.mode = 'pinch';
-          pinchGestureRef.current.initialDistance = distance;
-          pinchGestureRef.current.initialScale = currentScale;
-          pinchGestureRef.current.worldPoint = worldPoint;
-        }
-
-        if (!pinchGestureRef.current || pinchGestureRef.current.initialDistance <= 0) {
-          return;
-        }
-
-        const initialScale = pinchGestureRef.current.initialScale;
-        let nextScale = initialScale * (distance / pinchGestureRef.current.initialDistance);
-        nextScale = clamp(nextScale, MIN_CANVAS_SCALE, MAX_CANVAS_SCALE);
-
-        const offsetX = center.x - nextScale * worldPoint.x;
-        const offsetY = center.y - nextScale * worldPoint.y;
-
-        canvasScale.setValue(nextScale);
-        canvasScaleRef.current = nextScale;
-        updateCanvasOffset(offsetX, offsetY);
-
-        pinchGestureRef.current.currentScale = nextScale;
-        pinchGestureRef.current.lastCenter = center;
-        return;
-      }
-
-      if (touches.length === 1 && pinchGestureRef.current) {
-        let finger = touches[0];
-        if (pinchGestureRef.current.mode !== 'pan') {
-          pinchGestureRef.current.mode = 'pan';
-          pinchGestureRef.current.panFingerId =
-            typeof finger.identifier === 'number' ? finger.identifier : 0;
-          pinchGestureRef.current.panStart = { x: finger.pageX, y: finger.pageY };
-          pinchGestureRef.current.startOffset =
-            pinchGestureRef.current.currentOffset || { ...canvasOffsetRef.current };
-          pinchGestureRef.current.currentScale = canvasScaleRef.current;
-        } else if (typeof pinchGestureRef.current.panFingerId === 'number') {
-          const match = touches.find(
-            t => t.identifier === pinchGestureRef.current.panFingerId
-          );
-          if (match) {
-            finger = match;
-          }
-        }
-
-        const startOffset = pinchGestureRef.current.startOffset || canvasOffsetRef.current;
-        const dx = finger.pageX - pinchGestureRef.current.panStart.x;
-        const dy = finger.pageY - pinchGestureRef.current.panStart.y;
-        const offsetX = startOffset.x + dx;
-        const offsetY = startOffset.y + dy;
-        updateCanvasOffset(offsetX, offsetY);
-      }
-    },
-    onPanResponderRelease: () => {
-      if (pinchGestureRef.current) {
-        canvasOffsetRef.current = pinchGestureRef.current.currentOffset;
-        canvasBaseOffset.setValue(canvasOffsetRef.current);
-        canvasPan.setValue({ x: 0, y: 0 });
-        canvasScale.setValue(pinchGestureRef.current.currentScale);
-        canvasScaleRef.current = pinchGestureRef.current.currentScale;
-        pinchGestureRef.current = null;
-      } else {
-        canvasOffsetRef.current = {
-          x: canvasOffsetRef.current.x + canvasPan.x._value,
-          y: canvasOffsetRef.current.y + canvasPan.y._value,
-        };
-        canvasBaseOffset.setValue(canvasOffsetRef.current);
-        canvasPan.setValue({ x: 0, y: 0 });
-      }
-    },
-    onPanResponderTerminate: () => {
-      if (pinchGestureRef.current) {
-        canvasOffsetRef.current = pinchGestureRef.current.currentOffset;
-        canvasBaseOffset.setValue(canvasOffsetRef.current);
-        canvasPan.setValue({ x: 0, y: 0 });
-        canvasScale.setValue(pinchGestureRef.current.currentScale);
-        canvasScaleRef.current = pinchGestureRef.current.currentScale;
-        pinchGestureRef.current = null;
-      } else {
-        canvasOffsetRef.current = {
-          x: canvasOffsetRef.current.x + canvasPan.x._value,
-          y: canvasOffsetRef.current.y + canvasPan.y._value,
-        };
-        canvasBaseOffset.setValue(canvasOffsetRef.current);
-        canvasPan.setValue({ x: 0, y: 0 });
-      }
-    },
-  })).current;
+    return dots;
+  }, []);
 
   // Category-specific fields
   const [featurePriority, setFeaturePriority] = useState('medium');
@@ -577,9 +404,6 @@ export default function WorkspaceScreen({ navigation, route }) {
             // Get the current animated values (these are the actual drag deltas)
             const dx = pan.x._value;
             const dy = pan.y._value;
-            const scale = canvasScaleRef.current || 1;
-            const dxWorld = dx / scale;
-            const dyWorld = dy / scale;
 
             // Update note position in state
             // IMPORTANT: Look up current note position from state, not from closure
@@ -587,8 +411,8 @@ export default function WorkspaceScreen({ navigation, route }) {
               return prevNotes.map(n => {
                 if (n.id === note.id) {
                   // Use current position from state, not stale closure variable
-                  const newX = n.position.x + dxWorld;
-                  const newY = n.position.y + dyWorld;
+                  const newX = n.position.x + dx;
+                  const newY = n.position.y + dy;
 
                   return { ...n, position: { x: newX, y: newY } };
                 }
@@ -1000,60 +824,37 @@ export default function WorkspaceScreen({ navigation, route }) {
         ]}
       >
         {/* Canvas with stippled grid */}
-        <View
-          style={styles.notesCanvas}
-          onLayout={(event) => {
-            const { width, height } = event.nativeEvent.layout;
-            viewportSizeRef.current = { width, height };
-          }}
-        >
-          <Animated.View
-            style={[
-              styles.canvasContentWrapper,
-              {
-                transform: [
-                  { translateX: Animated.add(canvasBaseOffset.x, canvasPan.x) },
-                  { translateY: Animated.add(canvasBaseOffset.y, canvasPan.y) },
-                ],
-              },
-            ]}
-            {...canvasPanResponder.panHandlers}
-          >
-            <Animated.View
-              style={[
-                styles.canvasContent,
-                {
-                  transform: [{ scale: canvasScale }],
-                },
-              ]}
-            >
-              <Image
-                source={{ uri: GRID_PATTERN_URI }}
-                style={styles.gridImage}
-                resizeMode="repeat"
-                pointerEvents="none"
+        <View style={styles.notesCanvas}>
+          <View style={styles.gridBackground}>
+            {gridDots.map(dot => (
+              <View
+                key={dot.key}
+                style={[
+                  styles.gridDot,
+                  { top: dot.top, left: dot.left }
+                ]}
               />
+            ))}
+          </View>
 
-              {/* Render notes */}
-              {notes.map(note => {
-                const category = NOTE_CATEGORIES.find(c => c.id === note.category);
-                const panResponder = getNotePanResponder(note);
-                const pan = notePanValues[note.id];
-                const isDragging = draggingNoteId === note.id;
+          {/* Render notes */}
+          {notes.map(note => {
+            const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+            const panResponder = getNotePanResponder(note);
+            const pan = notePanValues[note.id];
+            const isDragging = draggingNoteId === note.id;
 
-                return (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    category={category}
-                    panResponder={panResponder}
-                    pan={pan}
-                    isDragging={isDragging}
-                  />
-                );
-              })}
-            </Animated.View>
-          </Animated.View>
+            return (
+              <NoteCard
+                key={note.id}
+                note={note}
+                category={category}
+                panResponder={panResponder}
+                pan={pan}
+                isDragging={isDragging}
+              />
+            );
+          })}
 
           {/* Floating Close Button */}
           <TouchableOpacity
@@ -1080,15 +881,9 @@ export default function WorkspaceScreen({ navigation, route }) {
             <TouchableOpacity
               style={styles.floatingNewNoteButton}
               onPress={() => {
-                const { width: viewportWidth, height: viewportHeight } = viewportSizeRef.current;
-                const scale = canvasScaleRef.current || 1;
-                const targetScreenX = (viewportWidth / 2) - (NOTE_CARD_WIDTH / 2);
-                const targetScreenY = (viewportHeight / 2) - (NOTE_CARD_MIN_HEIGHT / 2);
-                const worldX = (targetScreenX - canvasOffsetRef.current.x) / scale;
-                const worldY = (targetScreenY - canvasOffsetRef.current.y) / scale;
                 setTapPosition({
-                  x: worldX,
-                  y: worldY,
+                  x: SCREEN_WIDTH / 2 - NOTE_CARD_WIDTH / 2,
+                  y: 200,
                 });
                 setCurrentNote(null);
                 setNoteTitle('');
@@ -1569,21 +1364,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     position: 'relative',
     overflow: 'hidden',
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
-  canvasContentWrapper: {
+  gridBackground: {
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  canvasContent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
     backgroundColor: '#0a0a0a',
+  },
+  gridDot: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: Colors.textTertiary,
+    opacity: 0.3,
   },
   floatingCloseButton: {
     position: 'absolute',
@@ -1632,15 +1430,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-  },
-  gridImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
   },
   noteCard: {
     position: 'absolute',
