@@ -11,6 +11,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -23,8 +24,9 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [expandedCard, setExpandedCard] = useState(null);
   const [businessName, setBusinessName] = useState('');
   const [elevatorPitch, setElevatorPitch] = useState('');
-  const [isEditingPitch, setIsEditingPitch] = useState(false);
   const elevatorPitchRef = useRef(null);
+  const touchStart = useRef({ x: 0, y: 0 });
+  const isDragging = useRef(false);
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -297,43 +299,44 @@ export default function WorkspaceScreen({ navigation, route }) {
 
       {/* Elevator Pitch Field */}
       <View style={styles.section}>
-        <View style={styles.sectionHeaderWithButton}>
-          <Text style={styles.sectionTitle}>Elevator Pitch</Text>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => {
-              if (isEditingPitch) {
-                setIsEditingPitch(false);
-                elevatorPitchRef.current?.blur();
-              } else {
-                setIsEditingPitch(true);
-                setTimeout(() => elevatorPitchRef.current?.focus(), 100);
-              }
-            }}
-          >
-            <Ionicons
-              name={isEditingPitch ? "checkmark-circle" : "pencil"}
-              size={20}
-              color={isEditingPitch ? Colors.accent4 : Colors.accent1}
-            />
-            <Text style={[styles.editButtonText, isEditingPitch && styles.editButtonTextActive]}>
-              {isEditingPitch ? "Done" : "Edit"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <TextInput
-          ref={elevatorPitchRef}
-          style={styles.elevatorPitchInput}
-          placeholder="Enter elevator pitch..."
-          placeholderTextColor={Colors.textTertiary}
-          value={elevatorPitch}
-          onChangeText={setElevatorPitch}
-          multiline
-          numberOfLines={5}
-          textAlignVertical="top"
-          editable={isEditingPitch}
-          scrollEnabled={!isEditingPitch}
-        />
+        <Text style={styles.sectionTitle}>Elevator Pitch</Text>
+        <Pressable
+          onPressIn={(e) => {
+            touchStart.current = {
+              x: e.nativeEvent.pageX,
+              y: e.nativeEvent.pageY,
+            };
+            isDragging.current = false;
+          }}
+          onTouchMove={(e) => {
+            const touch = e.nativeEvent.touches[0];
+            const deltaX = Math.abs(touch.pageX - touchStart.current.x);
+            const deltaY = Math.abs(touch.pageY - touchStart.current.y);
+            // If moved more than 10 pixels in any direction, it's a drag
+            if (deltaX > 10 || deltaY > 10) {
+              isDragging.current = true;
+            }
+          }}
+          onPress={() => {
+            // Only focus if it wasn't a drag
+            if (!isDragging.current) {
+              elevatorPitchRef.current?.focus();
+            }
+          }}
+        >
+          <TextInput
+            ref={elevatorPitchRef}
+            style={styles.elevatorPitchInput}
+            placeholder="Enter elevator pitch..."
+            placeholderTextColor={Colors.textTertiary}
+            value={elevatorPitch}
+            onChangeText={setElevatorPitch}
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+            scrollEnabled={true}
+          />
+        </Pressable>
       </View>
 
       {!businessName && !elevatorPitch && (
@@ -562,29 +565,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
-  },
-  sectionHeaderWithButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: Colors.surface,
-  },
-  editButtonText: {
-    color: Colors.accent1,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  editButtonTextActive: {
-    color: Colors.accent4,
   },
   sectionText: {
     color: Colors.textSecondary,
