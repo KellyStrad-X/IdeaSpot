@@ -13,12 +13,22 @@ import {
   Platform,
   Animated,
   Dimensions,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getIdea } from '../../services/firestore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const NOTE_CATEGORIES = [
+  { id: 'feature', label: 'Feature Idea', color: '#4A9EFF' },
+  { id: 'risk', label: 'Risk/Concern', color: '#FF6B6B' },
+  { id: 'question', label: 'Question', color: '#FFD93D' },
+  { id: 'insight', label: 'Insight', color: '#6BCF7F' },
+  { id: 'todo', label: 'To-Do', color: '#A78BFA' },
+];
 
 export default function WorkspaceScreen({ navigation, route }) {
   const { ideaId } = route.params || {};
@@ -29,6 +39,15 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [elevatorPitch, setElevatorPitch] = useState('');
   const [notesVisible, setNotesVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // Notes canvas state
+  const [notes, setNotes] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentNote, setCurrentNote] = useState(null);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteCategory, setNoteCategory] = useState('feature');
+  const [noteContent, setNoteContent] = useState('');
+  const [tapPosition, setTapPosition] = useState({ x: 0, y: 0 });
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -88,6 +107,53 @@ export default function WorkspaceScreen({ navigation, route }) {
       tension: 65,
       friction: 10,
     }).start();
+  };
+
+  const handleCanvasTap = (event) => {
+    const { locationX, locationY } = event.nativeEvent;
+    setTapPosition({ x: locationX, y: locationY });
+    setCurrentNote(null);
+    setNoteTitle('');
+    setNoteCategory('feature');
+    setNoteContent('');
+    setModalVisible(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!noteTitle.trim()) {
+      Alert.alert('Error', 'Please enter a note title');
+      return;
+    }
+
+    const newNote = {
+      id: currentNote?.id || Date.now().toString(),
+      title: noteTitle,
+      category: noteCategory,
+      content: noteContent,
+      position: currentNote?.position || tapPosition,
+    };
+
+    if (currentNote) {
+      // Edit existing note
+      setNotes(notes.map(n => n.id === currentNote.id ? newNote : n));
+    } else {
+      // Add new note
+      setNotes([...notes, newNote]);
+    }
+
+    setModalVisible(false);
+    setNoteTitle('');
+    setNoteCategory('feature');
+    setNoteContent('');
+    setCurrentNote(null);
+  };
+
+  const handleEditNote = (note) => {
+    setCurrentNote(note);
+    setNoteTitle(note.title);
+    setNoteCategory(note.category);
+    setNoteContent(note.content);
+    setModalVisible(true);
   };
 
   const renderSummaryCard = () => (
@@ -432,7 +498,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
-      {/* Notes Panel */}
+      {/* Notes Canvas Panel */}
       <Animated.View
         style={[
           styles.notesPanel,
@@ -442,21 +508,141 @@ export default function WorkspaceScreen({ navigation, route }) {
         ]}
       >
         <View style={styles.notesHeader}>
-          <Text style={styles.notesTitle}>Notes</Text>
+          <Text style={styles.notesTitle}>Notes Canvas</Text>
           <TouchableOpacity onPress={toggleNotes} style={styles.closeNotesButton}>
             <Ionicons name="close" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
-        <ScrollView style={styles.notesContent}>
-          <TextInput
-            style={styles.notesInput}
-            placeholder="Write your notes here..."
-            placeholderTextColor={Colors.textTertiary}
-            multiline
-            textAlignVertical="top"
-          />
-        </ScrollView>
+
+        {/* Canvas with stippled grid */}
+        <Pressable
+          style={styles.notesCanvas}
+          onPress={handleCanvasTap}
+        >
+          <View style={styles.gridBackground}>
+            {/* Stippled grid pattern */}
+            {Array.from({ length: 40 }).map((_, row) =>
+              Array.from({ length: 20 }).map((_, col) => (
+                <View
+                  key={`dot-${row}-${col}`}
+                  style={[
+                    styles.gridDot,
+                    { top: row * 40, left: col * 40 }
+                  ]}
+                />
+              ))
+            )}
+          </View>
+
+          {/* Render notes */}
+          {notes.map(note => {
+            const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+            return (
+              <Pressable
+                key={note.id}
+                style={[
+                  styles.noteCard,
+                  {
+                    left: note.position.x,
+                    top: note.position.y,
+                    borderLeftColor: category?.color || Colors.accent1,
+                  }
+                ]}
+                onPress={() => handleEditNote(note)}
+              >
+                <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
+                  <Text style={styles.categoryBadgeText}>{category?.label}</Text>
+                </View>
+                <Text style={styles.noteCardTitle}>{note.title}</Text>
+                {note.content ? (
+                  <Text style={styles.noteCardContent} numberOfLines={3}>
+                    {note.content}
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </Pressable>
       </Animated.View>
+
+      {/* Add/Edit Note Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>
+                {currentNote ? 'Edit Note' : 'New Note'}
+              </Text>
+
+              {/* Title Input */}
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Note title..."
+                placeholderTextColor={Colors.textTertiary}
+                value={noteTitle}
+                onChangeText={setNoteTitle}
+              />
+
+              {/* Category Selector */}
+              <Text style={styles.modalLabel}>Category</Text>
+              <View style={styles.categorySelector}>
+                {NOTE_CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.categoryOption,
+                      { backgroundColor: cat.color },
+                      noteCategory === cat.id && styles.categoryOptionSelected,
+                    ]}
+                    onPress={() => setNoteCategory(cat.id)}
+                  >
+                    <Text style={styles.categoryOptionText}>{cat.label}</Text>
+                    {noteCategory === cat.id && (
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Content Input */}
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                placeholder="Note content (optional)..."
+                placeholderTextColor={Colors.textTertiary}
+                value={noteContent}
+                onChangeText={setNoteContent}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              {/* Action Buttons */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSaveButton]}
+                  onPress={handleSaveNote}
+                >
+                  <Text style={styles.modalSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -780,15 +966,150 @@ const styles = StyleSheet.create({
   closeNotesButton: {
     padding: 8,
   },
-  notesContent: {
+  notesCanvas: {
     flex: 1,
-    padding: 16,
+    backgroundColor: Colors.background,
+    position: 'relative',
   },
-  notesInput: {
+  gridBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0a0a0a',
+  },
+  gridDot: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: Colors.textTertiary,
+    opacity: 0.3,
+  },
+  noteCard: {
+    position: 'absolute',
+    width: 200,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  noteCardTitle: {
     color: Colors.textPrimary,
     fontSize: 16,
-    lineHeight: 24,
-    minHeight: 200,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  noteCardContent: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  categoryBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalTitle: {
+    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  modalLabel: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  modalInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 12,
+    color: Colors.textPrimary,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  modalTextArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  categorySelector: {
+    marginBottom: 12,
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  categoryOptionSelected: {
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  categoryOptionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalSaveButton: {
+    backgroundColor: Colors.accent1,
+  },
+  modalCancelText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalSaveText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   // Actionable Insights styles
   insightHeader: {
