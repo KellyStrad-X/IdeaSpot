@@ -11,10 +11,14 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getIdea } from '../../services/firestore';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function WorkspaceScreen({ navigation, route }) {
   const { ideaId } = route.params || {};
@@ -23,6 +27,8 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [expandedCard, setExpandedCard] = useState(null);
   const [businessName, setBusinessName] = useState('');
   const [elevatorPitch, setElevatorPitch] = useState('');
+  const [notesVisible, setNotesVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -71,6 +77,17 @@ export default function WorkspaceScreen({ navigation, route }) {
 
   const toggleCard = (cardName) => {
     setExpandedCard(expandedCard === cardName ? null : cardName);
+  };
+
+  const toggleNotes = () => {
+    const toValue = notesVisible ? 0 : -SCREEN_WIDTH;
+    setNotesVisible(!notesVisible);
+    Animated.spring(slideAnim, {
+      toValue,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 10,
+    }).start();
   };
 
   const renderSummaryCard = () => (
@@ -398,14 +415,48 @@ export default function WorkspaceScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* Continue Chat Button */}
-        <TouchableOpacity
-          style={styles.continueChatButton}
-          onPress={() => navigation.navigate('Chat', { ideaId: idea.id })}
-        >
-          <Text style={styles.continueChatText}>Continue Chat</Text>
-        </TouchableOpacity>
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={styles.continueChatButton}
+            onPress={() => navigation.navigate('Chat', { ideaId: idea.id })}
+          >
+            <Text style={styles.continueChatText}>Continue Chat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.notesButton}
+            onPress={toggleNotes}
+          >
+            <Ionicons name="document-text" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Notes Panel */}
+      <Animated.View
+        style={[
+          styles.notesPanel,
+          {
+            transform: [{ translateX: slideAnim }],
+          }
+        ]}
+      >
+        <View style={styles.notesHeader}>
+          <Text style={styles.notesTitle}>Notes</Text>
+          <TouchableOpacity onPress={toggleNotes} style={styles.closeNotesButton}>
+            <Ionicons name="close" size={28} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={styles.notesContent}>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Write your notes here..."
+            placeholderTextColor={Colors.textTertiary}
+            multiline
+            textAlignVertical="top"
+          />
+        </ScrollView>
+      </Animated.View>
     </KeyboardAvoidingView>
   );
 }
@@ -676,8 +727,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  continueChatButton: {
+  actionButtonsContainer: {
+    flexDirection: 'row',
     margin: 16,
+    gap: 12,
+  },
+  continueChatButton: {
+    flex: 1,
     backgroundColor: Colors.accent1,
     padding: 16,
     borderRadius: 16,
@@ -687,6 +743,52 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
+  },
+  notesButton: {
+    width: 56,
+    height: 56,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.accent1,
+  },
+  notesPanel: {
+    position: 'absolute',
+    top: 0,
+    left: SCREEN_WIDTH,
+    width: SCREEN_WIDTH,
+    height: '100%',
+    backgroundColor: Colors.background,
+    zIndex: 1000,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    paddingTop: StatusBar.currentHeight || 40,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  notesTitle: {
+    color: Colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  closeNotesButton: {
+    padding: 8,
+  },
+  notesContent: {
+    flex: 1,
+    padding: 16,
+  },
+  notesInput: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    lineHeight: 24,
+    minHeight: 200,
   },
   // Actionable Insights styles
   insightHeader: {
