@@ -303,21 +303,11 @@ export default function WorkspaceScreen({ navigation, route }) {
     }).start();
   };
 
-  // Scroll carousel to current canvas when opening
-  useEffect(() => {
-    if (canvasPickerVisible && carouselScrollRef.current) {
-      const currentIndex = canvases.findIndex(c => c.id === currentCanvasId);
-      if (currentIndex >= 0) {
-        // Use requestAnimationFrame for immediate scroll on next frame (no visible flash)
-        requestAnimationFrame(() => {
-          carouselScrollRef.current?.scrollTo({
-            x: currentIndex * SCREEN_WIDTH,
-            animated: false,
-          });
-        });
-      }
-    }
-  }, [canvasPickerVisible, currentCanvasId, canvases]);
+  // Calculate initial scroll position for carousel
+  const getCarouselInitialOffset = () => {
+    const currentIndex = canvases.findIndex(c => c.id === currentCanvasId);
+    return { x: currentIndex >= 0 ? currentIndex * SCREEN_WIDTH : 0, y: 0 };
+  };
 
   // Canvas management functions
   const toggleCanvasPicker = () => {
@@ -1146,6 +1136,7 @@ export default function WorkspaceScreen({ navigation, route }) {
               showsHorizontalScrollIndicator={false}
               style={styles.canvasCarousel}
               contentContainerStyle={styles.canvasCarouselContent}
+              contentOffset={getCarouselInitialOffset()}
               decelerationRate="fast"
               snapToInterval={SCREEN_WIDTH}
               snapToAlignment="center"
