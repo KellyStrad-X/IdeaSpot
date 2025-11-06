@@ -11,7 +11,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -24,9 +23,6 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [expandedCard, setExpandedCard] = useState(null);
   const [businessName, setBusinessName] = useState('');
   const [elevatorPitch, setElevatorPitch] = useState('');
-  const elevatorPitchRef = useRef(null);
-  const touchStart = useRef({ x: 0, y: 0 });
-  const isDragging = useRef(false);
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -300,43 +296,16 @@ export default function WorkspaceScreen({ navigation, route }) {
       {/* Elevator Pitch Field */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Elevator Pitch</Text>
-        <Pressable
-          onTouchStart={(e) => {
-            touchStart.current = {
-              x: e.nativeEvent.pageX,
-              y: e.nativeEvent.pageY,
-            };
-            isDragging.current = false;
-          }}
-          onTouchMove={(e) => {
-            const touch = e.nativeEvent.touches[0];
-            const deltaX = Math.abs(touch.pageX - touchStart.current.x);
-            const deltaY = Math.abs(touch.pageY - touchStart.current.y);
-            // If moved more than 5 pixels in any direction, it's a drag
-            if (deltaX > 5 || deltaY > 5) {
-              isDragging.current = true;
-            }
-          }}
-          onTouchEnd={() => {
-            // Only focus if it wasn't a drag
-            if (!isDragging.current) {
-              elevatorPitchRef.current?.focus();
-            }
-          }}
-        >
-          <TextInput
-            ref={elevatorPitchRef}
-            style={styles.elevatorPitchInput}
-            placeholder="Enter elevator pitch..."
-            placeholderTextColor={Colors.textTertiary}
-            value={elevatorPitch}
-            onChangeText={setElevatorPitch}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-            scrollEnabled={true}
-          />
-        </Pressable>
+        <TextInput
+          style={styles.elevatorPitchInput}
+          placeholder="Enter elevator pitch..."
+          placeholderTextColor={Colors.textTertiary}
+          value={elevatorPitch}
+          onChangeText={setElevatorPitch}
+          multiline
+          textAlignVertical="top"
+          scrollEnabled={false}
+        />
       </View>
 
       {!businessName && !elevatorPitch && (
