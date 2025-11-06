@@ -308,12 +308,13 @@ export default function WorkspaceScreen({ navigation, route }) {
     if (canvasPickerVisible && carouselScrollRef.current) {
       const currentIndex = canvases.findIndex(c => c.id === currentCanvasId);
       if (currentIndex >= 0) {
-        setTimeout(() => {
+        // Use requestAnimationFrame for immediate scroll on next frame (no visible flash)
+        requestAnimationFrame(() => {
           carouselScrollRef.current?.scrollTo({
             x: currentIndex * SCREEN_WIDTH,
             animated: false,
           });
-        }, 100);
+        });
       }
     }
   }, [canvasPickerVisible, currentCanvasId, canvases]);
