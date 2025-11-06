@@ -1053,6 +1053,9 @@ export default function WorkspaceScreen({ navigation, route }) {
             showsHorizontalScrollIndicator={false}
             style={styles.canvasCarousel}
             contentContainerStyle={styles.canvasCarouselContent}
+            decelerationRate="fast"
+            snapToInterval={SCREEN_WIDTH}
+            snapToAlignment="center"
           >
             {canvases.map((canvas) => {
               const isActive = canvas.id === currentCanvasId;
@@ -1067,9 +1070,8 @@ export default function WorkspaceScreen({ navigation, route }) {
                   <Animated.View
                     style={[
                       styles.carouselCanvas,
-                      isActive && styles.carouselCanvasActive,
                       {
-                        transform: [{ scale: 0.75 }],
+                        transform: [{ scale: 0.88 }],
                       }
                     ]}
                   >
@@ -1141,7 +1143,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                   styles.carouselCanvas,
                   styles.addNewCanvasCard,
                   {
-                    transform: [{ scale: 0.75 }],
+                    transform: [{ scale: 0.88 }],
                   }
                 ]}
               >
@@ -2197,7 +2199,6 @@ const styles = StyleSheet.create({
   },
   canvasCarouselContent: {
     alignItems: 'center',
-    paddingHorizontal: SCREEN_WIDTH * 0.125, // Center the first canvas
   },
   carouselCanvasWrapper: {
     width: SCREEN_WIDTH,
@@ -2206,24 +2207,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   carouselCanvas: {
-    width: SCREEN_WIDTH * 0.9,
+    width: SCREEN_WIDTH * 0.92,
     height: SCREEN_HEIGHT * 0.85,
     borderRadius: 20,
-    borderWidth: 3,
-    borderColor: Colors.border,
+    borderWidth: 2,
+    borderColor: '#555555',
     backgroundColor: Colors.background,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 15,
-  },
-  carouselCanvasActive: {
-    borderColor: '#27AE60',
-    borderWidth: 4,
-    shadowColor: '#27AE60',
+    shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.6,
+    shadowRadius: 25,
+    elevation: 20,
   },
   addNewCanvasCard: {
     justifyContent: 'center',
