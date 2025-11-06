@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,8 +22,6 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [expandedCard, setExpandedCard] = useState(null);
   const [businessName, setBusinessName] = useState('');
   const [elevatorPitch, setElevatorPitch] = useState('');
-  const [isElevatorPitchEditable, setIsElevatorPitchEditable] = useState(false);
-  const elevatorPitchRef = useRef(null);
 
   // Fetch idea from Firestore
   useEffect(() => {
@@ -297,29 +295,16 @@ export default function WorkspaceScreen({ navigation, route }) {
       {/* Elevator Pitch Field */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Elevator Pitch</Text>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => {
-            setIsElevatorPitchEditable(true);
-            setTimeout(() => {
-              elevatorPitchRef.current?.focus();
-            }, 100);
-          }}
-        >
-          <TextInput
-            ref={elevatorPitchRef}
-            style={styles.elevatorPitchInput}
-            placeholder="Enter elevator pitch..."
-            placeholderTextColor={Colors.textTertiary}
-            value={elevatorPitch}
-            onChangeText={setElevatorPitch}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            editable={isElevatorPitchEditable}
-            onBlur={() => setIsElevatorPitchEditable(false)}
-          />
-        </TouchableOpacity>
+        <TextInput
+          style={styles.elevatorPitchInput}
+          placeholder="Enter elevator pitch..."
+          placeholderTextColor={Colors.textTertiary}
+          value={elevatorPitch}
+          onChangeText={setElevatorPitch}
+          multiline
+          numberOfLines={5}
+          textAlignVertical="top"
+        />
       </View>
 
       {!businessName && !elevatorPitch && (
@@ -674,7 +659,7 @@ const styles = StyleSheet.create({
     padding: 12,
     color: Colors.textPrimary,
     fontSize: 16,
-    minHeight: 100,
+    minHeight: 130,
   },
   actionButton: {
     backgroundColor: Colors.background,
