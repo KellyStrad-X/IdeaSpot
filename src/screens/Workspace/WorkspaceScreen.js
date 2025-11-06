@@ -507,13 +507,6 @@ export default function WorkspaceScreen({ navigation, route }) {
           }
         ]}
       >
-        <View style={styles.notesHeader}>
-          <Text style={styles.notesTitle}>Notes Canvas</Text>
-          <TouchableOpacity onPress={toggleNotes} style={styles.closeNotesButton}>
-            <Ionicons name="close" size={28} color={Colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
         {/* Canvas with stippled grid */}
         <Pressable
           style={styles.notesCanvas}
@@ -562,6 +555,30 @@ export default function WorkspaceScreen({ navigation, route }) {
               </Pressable>
             );
           })}
+
+          {/* Floating Close Button */}
+          <TouchableOpacity
+            style={styles.floatingCloseButton}
+            onPress={toggleNotes}
+          >
+            <Ionicons name="close" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+
+          {/* Floating New Note Button */}
+          <TouchableOpacity
+            style={styles.floatingNewNoteButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              setTapPosition({ x: SCREEN_WIDTH / 2 - 100, y: 200 });
+              setCurrentNote(null);
+              setNoteTitle('');
+              setNoteCategory('feature');
+              setNoteContent('');
+              setModalVisible(true);
+            }}
+          >
+            <Ionicons name="add" size={32} color={Colors.textPrimary} />
+          </TouchableOpacity>
         </Pressable>
       </Animated.View>
 
@@ -949,27 +966,42 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     zIndex: 1000,
   },
-  notesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: StatusBar.currentHeight || 40,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  notesTitle: {
-    color: Colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  closeNotesButton: {
-    padding: 8,
-  },
   notesCanvas: {
     flex: 1,
     backgroundColor: Colors.background,
     position: 'relative',
+  },
+  floatingCloseButton: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 16 || 56,
+    left: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  floatingNewNoteButton: {
+    position: 'absolute',
+    bottom: 32,
+    right: 32,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.accent1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   gridBackground: {
     position: 'absolute',
