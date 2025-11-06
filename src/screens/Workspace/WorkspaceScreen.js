@@ -138,8 +138,6 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [renamingCanvasId, setRenamingCanvasId] = useState(null);
   const [newCanvasName, setNewCanvasName] = useState('');
-  const canvasZoomAnim = useRef(new Animated.Value(1)).current;
-  const canvasPickerAnim = useRef(new Animated.Value(0)).current;
 
   // Notes canvas state
   const [notes, setNotes] = useState([]);
@@ -255,6 +253,12 @@ export default function WorkspaceScreen({ navigation, route }) {
         console.log('Canvas ID:', currentCanvasId);
         console.log('Notes being saved:', JSON.stringify(notes, null, 2));
         await updateCanvas(ideaId, currentCanvasId, { notes });
+
+        // Update local canvases state to keep carousel in sync
+        setCanvases(prevCanvases => prevCanvases.map(c =>
+          c.id === currentCanvasId ? { ...c, notes } : c
+        ));
+
         console.log('Notes saved successfully to canvas');
         justFinishedDrag.current = false; // Reset flag after save
       } catch (error) {
@@ -297,40 +301,7 @@ export default function WorkspaceScreen({ navigation, route }) {
 
   // Canvas management functions
   const toggleCanvasPicker = () => {
-    if (canvasPickerVisible) {
-      // Close canvas picker - zoom back in
-      Animated.parallel([
-        Animated.spring(canvasZoomAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 8,
-        }),
-        Animated.timing(canvasPickerAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setCanvasPickerVisible(false);
-      });
-    } else {
-      // Open canvas picker - zoom out
-      setCanvasPickerVisible(true);
-      Animated.parallel([
-        Animated.spring(canvasZoomAnim, {
-          toValue: 0.85,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 8,
-        }),
-        Animated.timing(canvasPickerAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
+    setCanvasPickerVisible(!canvasPickerVisible);
   };
 
   const handleCreateCanvas = async () => {
@@ -338,8 +309,13 @@ export default function WorkspaceScreen({ navigation, route }) {
       const canvasNumber = canvases.length + 1;
       const newCanvas = await createCanvas(ideaId, `Canvas ${canvasNumber}`);
       setCanvases([...canvases, newCanvas]);
-      // Switch to new canvas
-      await handleSwitchCanvas(newCanvas.id);
+
+      // Switch to new canvas and close picker
+      await setCurrentCanvas(ideaId, newCanvas.id);
+      setCurrentCanvasIdState(newCanvas.id);
+      setNotes([]); // New canvas is empty
+      setCanvasPickerVisible(false);
+
       console.log('✅ Created new canvas:', newCanvas);
     } catch (error) {
       console.error('Error creating canvas:', error);
@@ -350,7 +326,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const handleSwitchCanvas = async (canvasId) => {
     if (canvasId === currentCanvasId) {
       // Just close picker if selecting current canvas
-      toggleCanvasPicker();
+      setCanvasPickerVisible(false);
       return;
     }
 
@@ -371,7 +347,7 @@ export default function WorkspaceScreen({ navigation, route }) {
       }
 
       // Close picker
-      toggleCanvasPicker();
+      setCanvasPickerVisible(false);
 
       console.log('✅ Switched to canvas:', canvasId);
     } catch (error) {
@@ -1069,15 +1045,113 @@ export default function WorkspaceScreen({ navigation, route }) {
           }
         ]}
       >
-        {/* Canvas with stippled grid - wrapped with zoom animation */}
-        <Animated.View
-          style={[
-            styles.canvasContainer,
-            {
-              transform: [{ scale: canvasZoomAnim }],
-            }
-          ]}
-        >
+        {canvasPickerVisible ? (
+          /* Canvas Carousel View - Show all canvases horizontally */
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            style={styles.canvasCarousel}
+            contentContainerStyle={styles.canvasCarouselContent}
+          >
+            {canvases.map((canvas) => {
+              const isActive = canvas.id === currentCanvasId;
+              return (
+                <TouchableOpacity
+                  key={canvas.id}
+                  activeOpacity={0.9}
+                  onPress={() => handleSwitchCanvas(canvas.id)}
+                  onLongPress={() => handleRenameCanvas(canvas.id, canvas.name)}
+                  style={styles.carouselCanvasWrapper}
+                >
+                  <Animated.View
+                    style={[
+                      styles.carouselCanvas,
+                      isActive && styles.carouselCanvasActive,
+                      {
+                        transform: [{ scale: 0.75 }],
+                      }
+                    ]}
+                  >
+                    <View style={styles.notesCanvas}>
+                      {/* Grid Background */}
+                      <View style={styles.gridBackground}>
+                        {gridDots.map(dot => (
+                          <View
+                            key={dot.key}
+                            style={[
+                              styles.gridDot,
+                              { top: dot.top, left: dot.left }
+                            ]}
+                          />
+                        ))}
+                      </View>
+
+                      {/* Render notes for this canvas */}
+                      {canvas.notes && canvas.notes.map(note => {
+                        const category = NOTE_CATEGORIES.find(c => c.id === note.category);
+                        return (
+                          <View
+                            key={note.id}
+                            style={[
+                              styles.noteCard,
+                              {
+                                left: note.position.x,
+                                top: note.position.y,
+                                width: note.dimensions?.width || NOTE_CARD_DEFAULT_WIDTH,
+                                minHeight: note.dimensions?.height || NOTE_CARD_DEFAULT_HEIGHT,
+                                borderLeftColor: category?.color || Colors.accent1,
+                                zIndex: note.zIndex || 1,
+                              }
+                            ]}
+                          >
+                            <View style={styles.noteCardContent}>
+                              <Text style={styles.noteCardTitle}>{note.title}</Text>
+                              {note.content ? (
+                                <Text style={styles.noteCardContentText} numberOfLines={3}>
+                                  {note.content}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={[styles.noteCategoryBadge, { backgroundColor: category?.color }]}>
+                              <Text style={styles.categoryBadgeText}>{category?.label}</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+
+                      {/* Canvas Name Label */}
+                      <View style={styles.canvasNameLabel}>
+                        <Text style={styles.canvasNameText}>{canvas.name}</Text>
+                        <Text style={styles.canvasNoteCountText}>{canvas.notes?.length || 0} notes</Text>
+                      </View>
+                    </View>
+                  </Animated.View>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Add New Canvas Card */}
+            <TouchableOpacity
+              style={styles.carouselCanvasWrapper}
+              onPress={handleCreateCanvas}
+            >
+              <Animated.View
+                style={[
+                  styles.carouselCanvas,
+                  styles.addNewCanvasCard,
+                  {
+                    transform: [{ scale: 0.75 }],
+                  }
+                ]}
+              >
+                <Ionicons name="add-circle-outline" size={80} color={Colors.accent1} />
+                <Text style={styles.addNewCanvasText}>Create New Canvas</Text>
+              </Animated.View>
+            </TouchableOpacity>
+          </ScrollView>
+        ) : (
+          /* Single Active Canvas View - Full zoom */
           <View style={styles.notesCanvas}>
           <View style={styles.gridBackground}>
             {gridDots.map(dot => (
@@ -1170,78 +1244,6 @@ export default function WorkspaceScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
           </View>
-        </Animated.View>
-
-        {/* Canvas Picker Overlay */}
-        {canvasPickerVisible && (
-          <Animated.View
-            style={[
-              styles.canvasPickerOverlay,
-              {
-                opacity: canvasPickerAnim,
-              }
-            ]}
-          >
-            <View style={styles.canvasPickerContainer}>
-              <Text style={styles.canvasPickerTitle}>Your Canvases</Text>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.canvasPickerScroll}
-              >
-                {canvases.map((canvas, index) => {
-                  const isActive = canvas.id === currentCanvasId;
-                  return (
-                    <TouchableOpacity
-                      key={canvas.id}
-                      style={[
-                        styles.canvasThumbnail,
-                        isActive && styles.canvasThumbnailActive
-                      ]}
-                      onPress={() => handleSwitchCanvas(canvas.id)}
-                      onLongPress={() => handleRenameCanvas(canvas.id, canvas.name)}
-                    >
-                      <View style={styles.canvasThumbnailContent}>
-                        {/* Mini representation of canvas */}
-                        <View style={styles.canvasMiniGrid}>
-                          {canvas.notes && canvas.notes.slice(0, 6).map((note, i) => (
-                            <View
-                              key={note.id}
-                              style={[
-                                styles.canvasMiniNote,
-                                {
-                                  backgroundColor: NOTE_CATEGORIES.find(c => c.id === note.category)?.color || Colors.accent1,
-                                }
-                              ]}
-                            />
-                          ))}
-                        </View>
-                        <Text style={styles.canvasThumbnailName}>{canvas.name}</Text>
-                        <Text style={styles.canvasThumbnailNoteCount}>
-                          {canvas.notes?.length || 0} notes
-                        </Text>
-                      </View>
-                      {isActive && (
-                        <View style={styles.activeIndicator}>
-                          <Ionicons name="checkmark-circle" size={24} color="#27AE60" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {/* Add New Canvas Button */}
-                <TouchableOpacity
-                  style={styles.addCanvasButton}
-                  onPress={handleCreateCanvas}
-                >
-                  <Ionicons name="add-circle-outline" size={48} color={Colors.accent1} />
-                  <Text style={styles.addCanvasText}>New Canvas</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </Animated.View>
         )}
       </Animated.View>
 
@@ -2190,95 +2192,70 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '500',
   },
-  canvasContainer: {
+  canvasCarousel: {
     flex: 1,
   },
-  canvasPickerOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 240,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    zIndex: 3000,
-  },
-  canvasPickerContainer: {
-    flex: 1,
-    paddingVertical: 20,
-  },
-  canvasPickerTitle: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  canvasPickerScroll: {
-    paddingHorizontal: 20,
+  canvasCarouselContent: {
     alignItems: 'center',
-    gap: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.125, // Center the first canvas
   },
-  canvasThumbnail: {
-    width: 160,
-    height: 140,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    overflow: 'hidden',
-    marginRight: 16,
+  carouselCanvasWrapper: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  canvasThumbnailActive: {
-    borderColor: '#27AE60',
+  carouselCanvas: {
+    width: SCREEN_WIDTH * 0.9,
+    height: SCREEN_HEIGHT * 0.85,
+    borderRadius: 20,
     borderWidth: 3,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 15,
   },
-  canvasThumbnailContent: {
-    flex: 1,
-    padding: 12,
+  carouselCanvasActive: {
+    borderColor: '#27AE60',
+    borderWidth: 4,
+    shadowColor: '#27AE60',
+    shadowOpacity: 0.6,
   },
-  canvasMiniGrid: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 8,
-  },
-  canvasMiniNote: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-  },
-  canvasThumbnailName: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  canvasThumbnailNoteCount: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  addCanvasButton: {
-    width: 160,
-    height: 140,
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.accent1,
-    borderStyle: 'dashed',
+  addNewCanvasCard: {
     justifyContent: 'center',
     alignItems: 'center',
+    borderStyle: 'dashed',
+    borderColor: Colors.accent1,
+    backgroundColor: Colors.cardBackground,
   },
-  addCanvasText: {
+  addNewCanvasText: {
     color: Colors.accent1,
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: 16,
+  },
+  canvasNameLabel: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    zIndex: 10000,
+  },
+  canvasNameText: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  canvasNoteCountText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    marginTop: 2,
   },
 });
