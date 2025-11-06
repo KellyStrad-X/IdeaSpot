@@ -29,6 +29,51 @@ const NOTE_CATEGORIES = [
   { id: 'todo', label: 'To-Do', color: '#A78BFA' },
 ];
 
+// Memoized NoteCard component to prevent unnecessary re-renders
+const NoteCard = React.memo(({ note, category, panResponder, pan, isDragging }) => {
+  return (
+    <Animated.View
+      key={note.id}
+      {...panResponder.panHandlers}
+      style={[
+        styles.noteCard,
+        {
+          left: note.position.x,
+          top: note.position.y,
+          borderLeftColor: category?.color || Colors.accent1,
+          transform: pan ? [
+            { translateX: pan.x },
+            { translateY: pan.y },
+            { scale: isDragging ? 1.1 : 1 },
+          ] : [],
+          zIndex: isDragging ? 1000 : 1,
+          opacity: isDragging ? 0.9 : 1,
+        }
+      ]}
+    >
+      <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
+        <Text style={styles.categoryBadgeText}>{category?.label}</Text>
+      </View>
+      <Text style={styles.noteCardTitle}>{note.title}</Text>
+      {note.content ? (
+        <Text style={styles.noteCardContent} numberOfLines={3}>
+          {note.content}
+        </Text>
+      ) : null}
+    </Animated.View>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if these props actually changed
+  return (
+    prevProps.note.id === nextProps.note.id &&
+    prevProps.note.position.x === nextProps.note.position.x &&
+    prevProps.note.position.y === nextProps.note.position.y &&
+    prevProps.note.title === nextProps.note.title &&
+    prevProps.note.content === nextProps.note.content &&
+    prevProps.isDragging === nextProps.isDragging
+  );
+});
+
 export default function WorkspaceScreen({ navigation, route }) {
   const { ideaId } = route.params || {};
   const [idea, setIdea] = useState(null);
@@ -50,6 +95,7 @@ export default function WorkspaceScreen({ navigation, route }) {
   const [draggingNoteId, setDraggingNoteId] = useState(null);
   const notePanValues = useRef({}).current;
   const notePanResponders = useRef({}).current;
+  const justFinishedDrag = useRef(false);
 
   // Category-specific fields
   const [featurePriority, setFeaturePriority] = useState('medium');
@@ -102,22 +148,30 @@ export default function WorkspaceScreen({ navigation, route }) {
     // Skip saving on initial mount and when idea hasn't loaded yet
     if (!idea || !ideaId) return;
 
+    // CRITICAL: Do NOT save during active drag to prevent re-renders and flickering
+    if (draggingNoteId !== null) {
+      console.log('⏸️ Skipping save - drag in progress');
+      return;
+    }
+
     const saveNotes = async () => {
       try {
         console.log('=== SAVING NOTES TO FIRESTORE ===');
         console.log('Notes being saved:', JSON.stringify(notes, null, 2));
         await updateIdea(ideaId, { notes });
         console.log('Notes saved successfully');
+        justFinishedDrag.current = false; // Reset flag after save
       } catch (error) {
         console.error('Error saving notes:', error);
         // Optionally show error to user, but don't block UI
       }
     };
 
-    // Debounce saves to avoid excessive writes
-    const timeoutId = setTimeout(saveNotes, 500);
+    // If we just finished a drag, save immediately; otherwise debounce
+    const delay = justFinishedDrag.current ? 0 : 500;
+    const timeoutId = setTimeout(saveNotes, delay);
     return () => clearTimeout(timeoutId);
-  }, [notes, ideaId, idea]);
+  }, [notes, ideaId, idea, draggingNoteId]);
 
   // Format date for display
   const formatDate = (timestamp) => {
@@ -264,6 +318,7 @@ export default function WorkspaceScreen({ navigation, route }) {
             console.log('✅ Processing drag release...');
             isDragging = false;
             setDraggingNoteId(null);
+            justFinishedDrag.current = true; // Mark that we just finished dragging
 
             // Get the current animated values (these are the actual drag deltas)
             const dx = pan.x._value;
@@ -708,35 +763,14 @@ export default function WorkspaceScreen({ navigation, route }) {
             const isDragging = draggingNoteId === note.id;
 
             return (
-              <Animated.View
+              <NoteCard
                 key={note.id}
-                {...panResponder.panHandlers}
-                style={[
-                  styles.noteCard,
-                  {
-                    left: note.position.x,
-                    top: note.position.y,
-                    borderLeftColor: category?.color || Colors.accent1,
-                    transform: pan ? [
-                      { translateX: pan.x },
-                      { translateY: pan.y },
-                      { scale: isDragging ? 1.1 : 1 },
-                    ] : [],
-                    zIndex: isDragging ? 1000 : 1,
-                    opacity: isDragging ? 0.9 : 1,
-                  }
-                ]}
-              >
-                <View style={[styles.categoryBadge, { backgroundColor: category?.color }]}>
-                  <Text style={styles.categoryBadgeText}>{category?.label}</Text>
-                </View>
-                <Text style={styles.noteCardTitle}>{note.title}</Text>
-                {note.content ? (
-                  <Text style={styles.noteCardContent} numberOfLines={3}>
-                    {note.content}
-                  </Text>
-                ) : null}
-              </Animated.View>
+                note={note}
+                category={category}
+                panResponder={panResponder}
+                pan={pan}
+                isDragging={isDragging}
+              />
             );
           })}
 
