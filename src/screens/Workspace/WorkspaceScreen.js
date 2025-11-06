@@ -35,6 +35,7 @@ const CANVAS_HEIGHT = SCREEN_HEIGHT * 1.5;
 const GRID_SPACING = 40;
 const GRID_SNAP_THRESHOLD = 20; // Larger threshold = less aggressive grid snapping
 const NOTE_SNAP_THRESHOLD = 8; // Smaller threshold = more sensitive note-to-note snapping
+const RESIZE_SNAP_THRESHOLD = 15; // Threshold for snapping dimensions to grid during resize
 
 const NOTE_CATEGORIES = [
   { id: 'feature', label: 'Feature', color: '#4A9EFF' },
@@ -673,9 +674,28 @@ export default function WorkspaceScreen({ navigation, route }) {
       },
 
       onPanResponderMove: (evt, gestureState) => {
-        // Calculate new dimensions based on drag delta from initial size
-        const newWidth = Math.max(NOTE_CARD_MIN_WIDTH, Math.min(NOTE_CARD_MAX_WIDTH, initialWidth + gestureState.dx));
-        const newHeight = Math.max(NOTE_CARD_MIN_HEIGHT, Math.min(NOTE_CARD_MAX_HEIGHT, initialHeight + gestureState.dy));
+        // Calculate raw new dimensions
+        let rawWidth = initialWidth + gestureState.dx;
+        let rawHeight = initialHeight + gestureState.dy;
+
+        // Snap to grid multiples
+        const nearestGridWidth = Math.round(rawWidth / GRID_SPACING) * GRID_SPACING;
+        const nearestGridHeight = Math.round(rawHeight / GRID_SPACING) * GRID_SPACING;
+
+        let snappedWidth = rawWidth;
+        let snappedHeight = rawHeight;
+
+        // Apply snapping if within threshold
+        if (Math.abs(rawWidth - nearestGridWidth) < RESIZE_SNAP_THRESHOLD) {
+          snappedWidth = nearestGridWidth;
+        }
+        if (Math.abs(rawHeight - nearestGridHeight) < RESIZE_SNAP_THRESHOLD) {
+          snappedHeight = nearestGridHeight;
+        }
+
+        // Apply min/max constraints
+        const newWidth = Math.max(NOTE_CARD_MIN_WIDTH, Math.min(NOTE_CARD_MAX_WIDTH, snappedWidth));
+        const newHeight = Math.max(NOTE_CARD_MIN_HEIGHT, Math.min(NOTE_CARD_MAX_HEIGHT, snappedHeight));
 
         // Update note dimensions in real-time
         setNotes(prevNotes => prevNotes.map(n => {
