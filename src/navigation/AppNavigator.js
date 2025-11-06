@@ -151,8 +151,8 @@ function DashboardStack() {
           title: '',
           headerShown: true,
           headerRight: () => (
-            <View style={{ marginRight: 20, paddingLeft: 8, paddingTop: 2 }}>
-              <Text style={{ color: Colors.textPrimary, fontSize: 17, fontWeight: '900', letterSpacing: 0.8 }}>
+            <View style={{ marginRight: 16 }}>
+              <Text style={{ color: Colors.textPrimary, fontSize: 16, fontWeight: '600' }}>
                 IDEA WORKSPACE
               </Text>
             </View>
