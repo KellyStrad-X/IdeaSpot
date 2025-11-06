@@ -1162,7 +1162,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                   style={styles.carouselCanvasWrapper}
                 >
                   <View style={styles.carouselCanvas}>
-                    <View style={styles.notesCanvas}>
+                    <View style={[styles.notesCanvas, { transform: [{ scale: 0.85 }] }]}>
                       {/* Grid Background */}
                       <View style={styles.gridBackground}>
                         {gridDots.map(dot => (
@@ -1208,12 +1208,6 @@ export default function WorkspaceScreen({ navigation, route }) {
                           </View>
                         );
                       })}
-
-                      {/* Canvas Name Label */}
-                      <View style={styles.canvasNameLabel}>
-                        <Text style={styles.canvasNameText}>{canvas.name}</Text>
-                        <Text style={styles.canvasNoteCountText}>{canvas.notes?.length || 0} notes</Text>
-                      </View>
 
                       {/* Floating Buttons Preview (non-interactive) */}
                       <View pointerEvents="none">
@@ -2329,8 +2323,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    paddingTop: StatusBar.currentHeight + 12 || 48,
+    paddingVertical: 8,
+    paddingTop: (StatusBar.currentHeight || 24) + 8,
     backgroundColor: Colors.background,
   },
   carouselCanvasName: {
