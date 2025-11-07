@@ -142,6 +142,10 @@ export default function WorkspaceScreen({ navigation, route }) {
   const canvasZoomAnim = useRef(new Animated.Value(1)).current;
   const canvasLabelScaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Business name edit modal state
+  const [editBusinessNameModalVisible, setEditBusinessNameModalVisible] = useState(false);
+  const [editBusinessNameValue, setEditBusinessNameValue] = useState('');
+
   // Notes canvas state
   const [notes, setNotes] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -276,6 +280,33 @@ export default function WorkspaceScreen({ navigation, route }) {
     const timeoutId = setTimeout(saveNotes, delay);
     return () => clearTimeout(timeoutId);
   }, [notes, ideaId, idea, currentCanvasId, draggingNoteId]);
+
+  // Save elevator pitch when it changes
+  useEffect(() => {
+    // Skip saving on initial mount and when idea hasn't loaded yet
+    if (!idea || !ideaId) return;
+
+    const saveElevatorPitch = async () => {
+      try {
+        await updateIdea(ideaId, {
+          cards: {
+            ...idea.cards,
+            conceptBranding: {
+              ...idea.cards?.conceptBranding,
+              elevatorPitch: elevatorPitch,
+            }
+          }
+        });
+        console.log('✅ Saved elevator pitch');
+      } catch (error) {
+        console.error('Error saving elevator pitch:', error);
+      }
+    };
+
+    // Debounce the save
+    const timeoutId = setTimeout(saveElevatorPitch, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [elevatorPitch, ideaId, idea]);
 
   // Format date for display
   const formatDate = (timestamp) => {
@@ -447,6 +478,48 @@ export default function WorkspaceScreen({ navigation, route }) {
       } catch (error) {
         console.error('Error renaming canvas:', error);
         Alert.alert('Error', 'Failed to rename canvas');
+      }
+    }
+  };
+
+  const handleEditBusinessName = () => {
+    setEditBusinessNameValue(businessName);
+    setEditBusinessNameModalVisible(true);
+  };
+
+  const handleSaveBusinessName = async () => {
+    if (editBusinessNameValue !== undefined && editBusinessNameValue.trim()) {
+      try {
+        // Update in Firestore
+        await updateIdea(ideaId, {
+          cards: {
+            ...idea.cards,
+            conceptBranding: {
+              ...idea.cards?.conceptBranding,
+              name: editBusinessNameValue.trim(),
+            }
+          }
+        });
+
+        // Update local state
+        setBusinessName(editBusinessNameValue.trim());
+        setIdea({
+          ...idea,
+          cards: {
+            ...idea.cards,
+            conceptBranding: {
+              ...idea.cards?.conceptBranding,
+              name: editBusinessNameValue.trim(),
+            }
+          }
+        });
+
+        console.log('✅ Updated business name to:', editBusinessNameValue);
+        setEditBusinessNameModalVisible(false);
+        setEditBusinessNameValue('');
+      } catch (error) {
+        console.error('Error updating business name:', error);
+        Alert.alert('Error', 'Failed to update business name');
       }
     }
   };
@@ -963,47 +1036,41 @@ export default function WorkspaceScreen({ navigation, route }) {
     </View>
   );
 
-  const renderConceptBrandingSection = () => (
-    <View style={styles.brandingSection}>
-      <Text style={styles.brandingSectionTitle}>Concept Branding</Text>
+  const renderMinimumViableProductCard = () => (
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardHeader}
+        onPress={() => toggleCard('mvp')}
+      >
+        <Text style={styles.cardTitle}>Minimum Viable Product</Text>
+        <Text style={styles.expandIcon}>
+          {expandedCard === 'mvp' ? '−' : '+'}
+        </Text>
+      </TouchableOpacity>
 
-      {/* Business Name Field with Regen Button */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Business Name</Text>
-        <View style={styles.inputWithButton}>
-          <TextInput
-            style={styles.businessNameInput}
-            placeholder="Enter business name..."
-            placeholderTextColor={Colors.textTertiary}
-            value={businessName}
-            onChangeText={setBusinessName}
-          />
-          <TouchableOpacity style={styles.regenIconButton}>
-            <Text style={styles.regenIconText}>↻</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {expandedCard === 'mvp' && (
+        <View style={styles.cardContent}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Elevator Pitch</Text>
+            <TextInput
+              style={styles.elevatorPitchInput}
+              placeholder="Enter elevator pitch..."
+              placeholderTextColor={Colors.textTertiary}
+              value={elevatorPitch}
+              onChangeText={setElevatorPitch}
+              multiline
+              textAlignVertical="top"
+              scrollEnabled={false}
+            />
+          </View>
 
-      {/* Elevator Pitch Field */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Elevator Pitch</Text>
-        <TextInput
-          style={styles.elevatorPitchInput}
-          placeholder="Enter elevator pitch..."
-          placeholderTextColor={Colors.textTertiary}
-          value={elevatorPitch}
-          onChangeText={setElevatorPitch}
-          multiline
-          textAlignVertical="top"
-          scrollEnabled={false}
-        />
-      </View>
-
-      {!businessName && !elevatorPitch && (
-        <View style={styles.placeholderContainer}>
-          <Text style={styles.placeholderText}>
-            Branding concepts will be generated by AI and can be edited
-          </Text>
+          {!elevatorPitch && (
+            <View style={styles.placeholderContainer}>
+              <Text style={styles.placeholderText}>
+                MVP elevator pitch will be generated by AI and can be edited
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -1060,7 +1127,14 @@ export default function WorkspaceScreen({ navigation, route }) {
                 ))}
               </View>
               {idea.cards?.conceptBranding?.name && (
-                <Text style={styles.businessName}>{idea.cards.conceptBranding.name}</Text>
+                <TouchableOpacity
+                  style={styles.businessNameContainer}
+                  onPress={handleEditBusinessName}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.businessName}>{idea.cards.conceptBranding.name}</Text>
+                  <Ionicons name="pencil" size={14} color="#fff" style={styles.editIcon} />
+                </TouchableOpacity>
               )}
             </View>
             <Text style={styles.date}>{formatDate(idea.createdAt)}</Text>
@@ -1072,9 +1146,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         {renderActionableInsightsCard()}
         {renderUserScenariosCard()}
         {renderMonetizationCard()}
-
-        {/* Concept Branding - Always visible, not collapsible */}
-        {renderConceptBrandingSection()}
+        {renderMinimumViableProductCard()}
 
         {/* Show empty state only if no cards at all */}
         {!hasCards && (
@@ -1569,6 +1641,52 @@ export default function WorkspaceScreen({ navigation, route }) {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* Edit Business Name Modal */}
+      <Modal
+        visible={editBusinessNameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditBusinessNameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Business Name</Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Business name..."
+                placeholderTextColor={Colors.textTertiary}
+                value={editBusinessNameValue}
+                onChangeText={setEditBusinessNameValue}
+                autoFocus
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setEditBusinessNameModalVisible(false);
+                    setEditBusinessNameValue('');
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSaveButton]}
+                  onPress={handleSaveBusinessName}
+                >
+                  <Text style={styles.modalSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1651,12 +1769,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  businessNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+    gap: 6,
+  },
   businessName: {
     color: Colors.accent4,
     fontSize: 17,
     fontWeight: '600',
     fontStyle: 'italic',
-    marginLeft: 4,
+  },
+  editIcon: {
+    opacity: 0.8,
   },
   date: {
     color: Colors.textTertiary,
