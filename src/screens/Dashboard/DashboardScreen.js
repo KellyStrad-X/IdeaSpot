@@ -16,7 +16,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { subscribeToUserIdeas, deleteIdea } from '../../services/firestore';
+import { subscribeToUserIdeas, deleteIdea, updateIdea } from '../../services/firestore';
 
 // Pulsing overlay component for analyzing ideas
 function AnalyzingOverlay() {
@@ -56,6 +56,45 @@ function AnalyzingOverlay() {
   );
 }
 
+// Pulsing overlay component for analysis complete state
+function AnalysisCompleteOverlay() {
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  const opacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 0.8],
+  });
+
+  return (
+    <Animated.View style={[styles.analysisCompleteOverlay, { opacity }]}>
+      <View style={styles.analysisCompleteContent}>
+        <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+        <Text style={styles.analysisCompleteText}>Analysis Complete</Text>
+        <Text style={styles.readyForReviewText}>Ready for Review</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function DashboardScreen({ navigation }) {
   const { user } = useAuth();
   const [ideas, setIdeas] = useState([]);
@@ -65,7 +104,6 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const swipeableRefs = useRef({});
   const openSwipeableId = useRef(null);
-  const previousIdeas = useRef({});
 
   const filters = ['All', 'App', 'Product', 'Service', 'Software'];
 
@@ -74,41 +112,12 @@ export default function DashboardScreen({ navigation }) {
     if (!user) return;
 
     const unsubscribe = subscribeToUserIdeas(user.uid, (userIdeas) => {
-      // Check if any idea just finished analyzing
-      userIdeas.forEach((idea) => {
-        const previousIdea = previousIdeas.current[idea.id];
-        if (previousIdea?.analyzing === true && idea.analyzing === false) {
-          // Analysis just completed
-          Alert.alert(
-            'Analysis Complete!',
-            `Your idea "${idea.title}" has been analyzed.`,
-            [
-              {
-                text: 'View Now',
-                onPress: () => navigation.navigate('Workspace', { ideaId: idea.id }),
-              },
-              {
-                text: 'Later',
-                style: 'cancel',
-              },
-            ]
-          );
-        }
-      });
-
-      // Update previous ideas state
-      const ideasMap = {};
-      userIdeas.forEach((idea) => {
-        ideasMap[idea.id] = { analyzing: idea.analyzing };
-      });
-      previousIdeas.current = ideasMap;
-
       setIdeas(userIdeas);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, navigation]);
+  }, [user]);
 
   // Filter and search ideas
   useEffect(() => {
@@ -203,10 +212,34 @@ export default function DashboardScreen({ navigation }) {
     );
   };
 
+  const handleIdeaClick = async (item) => {
+    const isAnalyzing = item.analyzing === true;
+    const isAnalysisComplete = item.analyzing === false && item.analysisReviewed !== true;
+
+    if (isAnalyzing) {
+      Alert.alert('Analysis in Progress', 'Your idea is currently being analyzed. Please wait...');
+      return;
+    }
+
+    // Mark as reviewed if analysis is complete
+    if (isAnalysisComplete) {
+      try {
+        await updateIdea(item.id, { analysisReviewed: true });
+      } catch (error) {
+        console.error('Error marking idea as reviewed:', error);
+      }
+    }
+
+    closeOpenSwipeable();
+    navigation.navigate('Workspace', { ideaId: item.id });
+  };
+
   const renderIdeaCard = ({ item }) => {
     // Get preview text from summary card or original input
     const preview = item.cards?.summary?.problem || item.originalInput || 'No description yet';
     const isAnalyzing = item.analyzing === true;
+    const isAnalysisComplete = item.analyzing === false && item.analysisReviewed !== true;
+    const hasOverlay = isAnalyzing || isAnalysisComplete;
     const businessName = item.cards?.conceptBranding?.name;
 
     return (
@@ -220,21 +253,14 @@ export default function DashboardScreen({ navigation }) {
         overshootRight={false}
         rightThreshold={40}
         onSwipeableOpen={() => handleSwipeableOpen(item.id)}
-        enabled={!isAnalyzing}
+        enabled={!hasOverlay}
       >
         <TouchableOpacity
-          style={[styles.ideaCard, isAnalyzing && styles.ideaCardAnalyzing]}
-          onPress={() => {
-            if (isAnalyzing) {
-              Alert.alert('Analysis in Progress', 'Your idea is currently being analyzed. Please wait...');
-              return;
-            }
-            closeOpenSwipeable();
-            navigation.navigate('Workspace', { ideaId: item.id });
-          }}
+          style={[styles.ideaCard, hasOverlay && styles.ideaCardAnalyzing]}
+          onPress={() => handleIdeaClick(item)}
           activeOpacity={isAnalyzing ? 1 : 0.7}
         >
-          <View style={[styles.cardContent, isAnalyzing && styles.cardContentAnalyzing]}>
+          <View style={[styles.cardContent, hasOverlay && styles.cardContentAnalyzing]}>
             <Text style={styles.cardTitle}>{item.title}</Text>
             <Text style={styles.cardPreview} numberOfLines={2}>
               {preview}
@@ -256,6 +282,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
           </View>
           {isAnalyzing && <AnalyzingOverlay />}
+          {isAnalysisComplete && <AnalysisCompleteOverlay />}
         </TouchableOpacity>
       </Swipeable>
     );
@@ -558,5 +585,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginTop: 12,
+  },
+  analysisCompleteOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  analysisCompleteContent: {
+    alignItems: 'center',
+  },
+  analysisCompleteText: {
+    color: '#4CAF50',
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  readyForReviewText: {
+    color: '#4CAF50',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 4,
   },
 });

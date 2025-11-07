@@ -155,6 +155,7 @@ export default function ChatScreen({ navigation, route }) {
           tags: [selectedCategory || 'Uncategorized'], // Use selected category
           status: 'active',
           analyzing: true, // Flag to show in-progress state
+          analysisReviewed: false, // Flag to show "Analysis Complete" state after analysis finishes
         });
 
         // Save chat messages to the idea
