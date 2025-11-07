@@ -207,6 +207,16 @@ export default function WorkspaceScreen({ navigation, route }) {
 
           setIdea(ideaData);
 
+          // Mark analysis as reviewed if it hasn't been reviewed yet
+          if (ideaData.analyzing === false && ideaData.analysisReviewed === false) {
+            try {
+              await updateIdea(ideaId, { analysisReviewed: true });
+              console.log('✅ Marked idea as reviewed');
+            } catch (error) {
+              console.error('Error marking idea as reviewed:', error);
+            }
+          }
+
           // Populate branding fields if they exist
           if (ideaData.cards?.conceptBranding) {
             setBusinessName(ideaData.cards.conceptBranding.name || '');

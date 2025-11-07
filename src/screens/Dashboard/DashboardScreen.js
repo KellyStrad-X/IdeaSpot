@@ -16,7 +16,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
-import { subscribeToUserIdeas, deleteIdea, updateIdea } from '../../services/firestore';
+import { subscribeToUserIdeas, deleteIdea } from '../../services/firestore';
 
 // Pulsing overlay component for analyzing ideas
 function AnalyzingOverlay() {
@@ -214,20 +214,10 @@ export default function DashboardScreen({ navigation }) {
 
   const handleIdeaClick = async (item) => {
     const isAnalyzing = item.analyzing === true;
-    const isAnalysisComplete = item.analyzing === false && item.analysisReviewed !== true;
 
     if (isAnalyzing) {
       Alert.alert('Analysis in Progress', 'Your idea is currently being analyzed. Please wait...');
       return;
-    }
-
-    // Mark as reviewed if analysis is complete
-    if (isAnalysisComplete) {
-      try {
-        await updateIdea(item.id, { analysisReviewed: true });
-      } catch (error) {
-        console.error('Error marking idea as reviewed:', error);
-      }
     }
 
     closeOpenSwipeable();
