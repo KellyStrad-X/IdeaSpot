@@ -232,6 +232,13 @@ export default function ChatScreen({ navigation, route }) {
           isUser ? styles.userMessageContainer : styles.aiMessageContainer,
         ]}
       >
+        {!isUser && (
+          <Image
+            source={require('../../../assets/logo.png')}
+            style={styles.aiProfileIcon}
+            resizeMode="contain"
+          />
+        )}
         <View
           style={[
             styles.messageBubble,
@@ -350,6 +357,14 @@ const styles = StyleSheet.create({
   },
   aiMessageContainer: {
     alignItems: 'flex-start',
+    flexDirection: 'row',
+  },
+  aiProfileIcon: {
+    width: 32,
+    height: 32,
+    marginRight: 8,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
   },
   messageBubble: {
     maxWidth: '80%',
