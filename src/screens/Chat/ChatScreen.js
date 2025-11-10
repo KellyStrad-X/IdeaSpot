@@ -53,6 +53,7 @@ export default function ChatScreen({ navigation, route }) {
   const [editBusinessNameModalVisible, setEditBusinessNameModalVisible] = useState(false);
   const [editBusinessNameValue, setEditBusinessNameValue] = useState('');
   const flatListRef = useRef(null);
+  const inputRef = useRef(null);
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
   const dot3Anim = useRef(new Animated.Value(0)).current;
@@ -78,24 +79,24 @@ export default function ChatScreen({ navigation, route }) {
               businessName,
             });
 
-            // Load continuation chat history
+            // Load ALL chat history (intake + continuation)
             const chatHistory = await getChatHistory(ideaId);
-            const continuationMessages = chatHistory.filter(msg => msg.isContinuation);
 
-            // Set messages with greeting + continuation history all at once (prevents flash)
-            const greeting = {
-              id: '1',
-              role: 'assistant',
-              content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
-            };
-
-            const historyMessages = continuationMessages.map((msg, index) => ({
-              id: `cont-${index}-${msg.timestamp}`,
+            // Convert all messages to UI format
+            const allHistoryMessages = chatHistory.map((msg, index) => ({
+              id: `msg-${index}-${msg.timestamp}`,
               role: msg.role,
               content: msg.content,
             }));
 
-            setMessages([greeting, ...historyMessages]);
+            // Add "Welcome back!" as the latest message at the end
+            const welcomeBackMessage = {
+              id: `welcome-${Date.now()}`,
+              role: 'assistant',
+              content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
+            };
+
+            setMessages([...allHistoryMessages, welcomeBackMessage]);
 
             // Update navigation header to show business name
             if (businessName) {
@@ -128,19 +129,25 @@ export default function ChatScreen({ navigation, route }) {
     if (!currentIdeaId) return;
 
     if (isContinuation) {
-      // For continuation: subscribe to continuation messages for real-time updates
+      // For continuation: subscribe to ALL messages for real-time updates
       const unsubscribe = subscribeToChatHistory(currentIdeaId, (chatMessages) => {
-        const continuationMessages = chatMessages.filter(msg => msg.isContinuation);
-
         setMessages((prevMessages) => {
-          const greeting = prevMessages[0];
-          const historyMessages = continuationMessages.map((msg, index) => ({
-            id: `cont-${index}-${msg.timestamp}`,
+          // Keep the welcome back message (last message in the array)
+          const welcomeBackMsg = prevMessages[prevMessages.length - 1];
+          const isWelcomeBack = welcomeBackMsg?.content?.includes('Welcome back');
+
+          const historyMessages = chatMessages.map((msg, index) => ({
+            id: `msg-${index}-${msg.timestamp}`,
             role: msg.role,
             content: msg.content,
           }));
 
-          return [greeting, ...historyMessages];
+          // If we have a welcome back message, add it at the end
+          if (isWelcomeBack) {
+            return [...historyMessages, welcomeBackMsg];
+          }
+
+          return historyMessages;
         });
       });
 
@@ -235,6 +242,12 @@ export default function ChatScreen({ navigation, route }) {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
+
+    // Keep keyboard open by maintaining focus
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+
     setIsAIThinking(true);
 
     // Store first user message for creating idea title
@@ -608,6 +621,7 @@ export default function ChatScreen({ navigation, route }) {
       {/* Input Area */}
       <View style={styles.inputContainer}>
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder="Type your idea..."
           placeholderTextColor={Colors.textTertiary}
@@ -616,6 +630,7 @@ export default function ChatScreen({ navigation, route }) {
           multiline
           maxLength={500}
           editable={!isAIThinking}
+          blurOnSubmit={false}
         />
         <TouchableOpacity
           style={[styles.sendButton, isAIThinking && styles.sendButtonDisabled]}
