@@ -13,7 +13,9 @@ import {
   ActivityIndicator,
   Image,
   Animated,
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -21,6 +23,7 @@ import {
   addChatMessage,
   subscribeToChatHistory,
   getIdea,
+  updateIdea,
 } from '../../services/firestore';
 import { generateIdeaCards, continueChat } from '../../services/openai';
 
@@ -46,6 +49,8 @@ export default function ChatScreen({ navigation, route }) {
   const [questionCount, setQuestionCount] = useState(0);
   const [ideaContext, setIdeaContext] = useState(null);
   const [isContinuation, setIsContinuation] = useState(false);
+  const [editBusinessNameModalVisible, setEditBusinessNameModalVisible] = useState(false);
+  const [editBusinessNameValue, setEditBusinessNameValue] = useState('');
   const flatListRef = useRef(null);
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
@@ -273,6 +278,41 @@ export default function ChatScreen({ navigation, route }) {
     return words.length > 50 ? words.substring(0, 47) + '...' : words;
   };
 
+  const handleEditBusinessName = () => {
+    setEditBusinessNameValue(ideaContext?.businessName || '');
+    setEditBusinessNameModalVisible(true);
+  };
+
+  const handleSaveBusinessName = async () => {
+    if (editBusinessNameValue && editBusinessNameValue.trim()) {
+      try {
+        // Update in Firestore
+        const updateData = {
+          cards: {
+            ...ideaContext,
+            mvp: {
+              name: editBusinessNameValue.trim(),
+            }
+          }
+        };
+
+        await updateIdea(currentIdeaId, updateData);
+
+        // Update local context
+        setIdeaContext({
+          ...ideaContext,
+          businessName: editBusinessNameValue.trim(),
+        });
+
+        setEditBusinessNameModalVisible(false);
+        setEditBusinessNameValue('');
+      } catch (error) {
+        console.error('Error updating business name:', error);
+        Alert.alert('Error', 'Failed to update business name');
+      }
+    }
+  };
+
   const handleCategorySelection = (category) => {
     setSelectedCategory(category);
     setShowCategorySelection(false);
@@ -464,10 +504,17 @@ export default function ChatScreen({ navigation, route }) {
     >
       <StatusBar barStyle="light-content" />
 
-      {/* Continuation Header with Business Name */}
+      {/* Header with Business Name */}
       {isContinuation && ideaContext?.businessName && (
-        <View style={styles.continuationHeader}>
-          <Text style={styles.businessNameHeader}>{ideaContext.businessName}</Text>
+        <View style={styles.chatHeader}>
+          <TouchableOpacity
+            style={styles.businessNameContainer}
+            onPress={handleEditBusinessName}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.businessName}>{ideaContext.businessName}</Text>
+            <Ionicons name="pencil" size={14} color="#fff" style={styles.editIcon} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -552,6 +599,52 @@ export default function ChatScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Edit Business Name Modal */}
+      <Modal
+        visible={editBusinessNameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditBusinessNameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Business Name</Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Business name..."
+                placeholderTextColor={Colors.textTertiary}
+                value={editBusinessNameValue}
+                onChangeText={setEditBusinessNameValue}
+                autoFocus
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setEditBusinessNameModalVisible(false);
+                    setEditBusinessNameValue('');
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSaveButton]}
+                  onPress={handleSaveBusinessName}
+                >
+                  <Text style={styles.modalSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -723,22 +816,87 @@ const styles = StyleSheet.create({
   typingDot3: {
     opacity: 1,
   },
-  continuationHeader: {
-    position: 'absolute',
-    top: StatusBar.currentHeight + 16 || 56,
-    right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  chatHeader: {
+    paddingTop: (StatusBar.currentHeight || 24) + 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    zIndex: 100,
-    borderWidth: 1,
-    borderColor: Colors.accent4,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  businessNameHeader: {
+  businessNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  businessName: {
     color: Colors.accent4,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     fontStyle: 'italic',
+  },
+  editIcon: {
+    opacity: 0.8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalTitle: {
+    color: Colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  modalInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 12,
+    color: Colors.textPrimary,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalSaveButton: {
+    backgroundColor: Colors.accent1,
+  },
+  modalCancelText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalSaveText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
