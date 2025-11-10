@@ -21,7 +21,7 @@ import {
   subscribeToChatHistory,
   getIdea,
 } from '../../services/firestore';
-import { generateIdeaCards } from '../../services/openai';
+import { generateIdeaCards, continueChat } from '../../services/openai';
 
 export default function ChatScreen({ navigation, route }) {
   const { user } = useAuth();
@@ -41,16 +41,12 @@ export default function ChatScreen({ navigation, route }) {
   const [currentIdeaId, setCurrentIdeaId] = useState(ideaId);
   const [firstUserMessage, setFirstUserMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isAIThinking, setIsAIThinking] = useState(false);
+  const [questionCount, setQuestionCount] = useState(0);
   const flatListRef = useRef(null);
 
   const categories = ['App', 'Product', 'Service', 'Software'];
-
-  const quickReplies = [
-    'Summarize & analyze',
-    'List next steps',
-    'Show similar concepts',
-    'Save to library',
-  ];
+  const maxQuestions = 4; // AI will ask 3-4 qualifying questions
 
   // Load existing chat history if continuing an idea
   useEffect(() => {
@@ -70,7 +66,7 @@ export default function ChatScreen({ navigation, route }) {
   }, [currentIdeaId]);
 
   const handleSend = async () => {
-    if (inputText.trim() === '') return;
+    if (inputText.trim() === '' || isAIThinking) return;
 
     const userMessageContent = inputText.trim();
 
@@ -83,32 +79,118 @@ export default function ChatScreen({ navigation, route }) {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
+    setIsAIThinking(true);
 
     // Store first user message for creating idea title
     if (!firstUserMessage) {
       setFirstUserMessage(userMessageContent);
     }
 
-    // Save message to Firestore if we have an ideaId
-    if (currentIdeaId) {
-      try {
-        await addChatMessage(currentIdeaId, 'user', userMessageContent);
-      } catch (error) {
-        console.error('Error saving message:', error);
-      }
-    }
+    try {
+      // Get AI response using the conversational AI
+      const chatHistory = messages.slice(1).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
 
-    // Simulate AI response asking for category
-    setTimeout(() => {
+      // System prompt for AI to be inquisitive and ask qualifying questions
+      const systemPrompt = `You are an enthusiastic, creative idea development assistant. Your goal is to help the user flesh out their idea by asking 3-4 insightful qualifying questions.
+
+Be:
+- Inquisitive and genuinely interested in their idea
+- Personable and conversational
+- Creative in helping them shape the idea
+- Focused on understanding the core aspects: target audience, key features/offerings, unique value, and any constraints
+
+Ask ONE question at a time. After ${maxQuestions} questions (or when you have enough detail), let the user know you're ready to analyze and show them insights.
+
+Try to naturally determine if this is an App, Product, Service, or Software idea based on the conversation.`;
+
+      // Build full conversation for AI
+      const fullContext = [
+        { role: 'system', content: systemPrompt },
+        ...chatHistory,
+        { role: 'user', content: userMessageContent }
+      ];
+
+      // Create a temporary idea if we don't have one yet (for chat history)
+      let tempIdeaId = currentIdeaId;
+      if (!tempIdeaId) {
+        tempIdeaId = await createIdea(user.uid, {
+          title: 'New Idea',
+          originalInput: userMessageContent,
+          tags: ['In Progress'],
+          status: 'active',
+        });
+        setCurrentIdeaId(tempIdeaId);
+      }
+
+      // Save user message
+      await addChatMessage(tempIdeaId, 'user', userMessageContent);
+
+      // Get AI response - we'll use a simple prompt-based approach since continueChat needs an existing idea
+      // For now, we'll create a conversational flow with predetermined logic
+      const currentQuestionNum = questionCount + 1;
+
+      let aiResponse = '';
+
+      if (currentQuestionNum === 1) {
+        // First question - ask about target audience or users
+        aiResponse = "That sounds interesting! Tell me more - who is this for? Who would benefit most from this idea?";
+      } else if (currentQuestionNum === 2) {
+        // Second question - ask about core value or features
+        aiResponse = "Great! And what's the main problem this solves for them? What would be the core offering or key feature?";
+      } else if (currentQuestionNum === 3) {
+        // Third question - ask about unique angle or delivery
+        aiResponse = "I'm getting a clearer picture. What makes this different from existing solutions? Is there a unique angle or approach you're considering?";
+      } else if (currentQuestionNum === 4) {
+        // Fourth question - ask about constraints or monetization hints
+        aiResponse = "Excellent! Last question - are there any specific constraints I should know about? Budget, timeline, or resources you're working with?";
+        setQuestionCount(currentQuestionNum);
+
+        // After answering, show the analyze button
+        setTimeout(() => {
+          const readyMessage = {
+            id: (Date.now() + 2).toString(),
+            role: 'assistant',
+            content: "Perfect! I have a good understanding of your idea now. Ready for me to analyze it and create your personalized insights?",
+          };
+          setMessages((prev) => [...prev, readyMessage]);
+          setShowQuickReplies(true);
+          setIsAIThinking(false);
+        }, 1000);
+
+        await addChatMessage(tempIdeaId, 'assistant', aiResponse);
+
+        const aiMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: aiResponse,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+        setIsAIThinking(false);
+        return;
+      }
+
+      setQuestionCount(currentQuestionNum);
+
+      // Save AI response
+      await addChatMessage(tempIdeaId, 'assistant', aiResponse);
+
+      // Add AI message to UI
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content:
-          'Got it — sounds like an interesting idea! What category does this fall under?',
+        content: aiResponse,
       };
       setMessages((prev) => [...prev, aiMessage]);
-      setShowCategorySelection(true);
-    }, 1000);
+
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      Alert.alert('Error', 'Failed to get AI response. Please try again.');
+    } finally {
+      setIsAIThinking(false);
+    }
   };
 
   const generateIdeaTitle = (text) => {
@@ -142,76 +224,79 @@ export default function ChatScreen({ navigation, route }) {
   };
 
   const handleQuickReply = async (reply) => {
+    if (reply !== 'Summarize & analyze') return;
+
     setShowQuickReplies(false);
     setSaving(true);
 
     try {
-      if (reply === 'Summarize & analyze') {
-        // Create the idea in Firestore with analyzing flag
-        const title = generateIdeaTitle(firstUserMessage);
-        const newIdeaId = await createIdea(user.uid, {
+      // AI responds "Getting started!"
+      const gettingStartedMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Getting started! ✨',
+      };
+      setMessages((prev) => [...prev, gettingStartedMessage]);
+
+      // Wait a moment for the message to appear
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Build full conversation transcript for AI analysis
+      const conversationTranscript = messages
+        .filter((msg) => msg.id !== '1') // Exclude initial greeting
+        .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
+
+      // Try to detect category from conversation
+      const conversationText = conversationTranscript.toLowerCase();
+      let detectedCategory = selectedCategory || '';
+
+      if (!detectedCategory) {
+        // Simple keyword-based detection
+        if (conversationText.includes('app') || conversationText.includes('mobile') || conversationText.includes('web app')) {
+          detectedCategory = 'App';
+        } else if (conversationText.includes('product') || conversationText.includes('physical') || conversationText.includes('device')) {
+          detectedCategory = 'Product';
+        } else if (conversationText.includes('service') || conversationText.includes('consulting') || conversationText.includes('coaching')) {
+          detectedCategory = 'Service';
+        } else if (conversationText.includes('software') || conversationText.includes('platform') || conversationText.includes('saas')) {
+          detectedCategory = 'Software';
+        } else {
+          detectedCategory = 'General';
+        }
+      }
+
+      // Update the idea with analyzing flag (use existing ideaId from conversation)
+      const title = generateIdeaTitle(firstUserMessage);
+
+      if (currentIdeaId) {
+        // Update existing idea
+        const { updateIdea } = require('../../services/firestore');
+        await updateIdea(currentIdeaId, {
           title,
-          originalInput: firstUserMessage,
-          tags: [selectedCategory || 'Uncategorized'], // Use selected category
-          status: 'active',
-          analyzing: true, // Flag to show in-progress state
-          analysisReviewed: false, // Flag to show "Analysis Complete" state after analysis finishes
+          tags: [detectedCategory],
+          analyzing: true,
+          analysisReviewed: false,
         });
 
-        // Save chat messages to the idea
-        const chatMessages = messages.filter((msg) => msg.id !== '1'); // Exclude initial greeting
-        for (const msg of chatMessages) {
-          await addChatMessage(newIdeaId, msg.role, msg.content);
-        }
+        // Save the "Getting started!" message
+        await addChatMessage(currentIdeaId, 'assistant', 'Getting started! ✨');
 
-        // Reset navigation to dashboard (clears the chat from stack)
+        // Navigate to dashboard
         navigation.reset({
           index: 0,
           routes: [{ name: 'DashboardHome' }],
         });
 
-        // Generate AI cards asynchronously (runs in background)
-        generateIdeaCards(newIdeaId, firstUserMessage).catch((error) => {
+        // Generate AI cards with full conversation context
+        generateIdeaCards(
+          currentIdeaId,
+          firstUserMessage,
+          conversationTranscript,
+          detectedCategory
+        ).catch((error) => {
           console.error('Error generating cards:', error);
-          // Analysis failed - the analyzing flag will be cleared by the function
         });
-      } else if (reply === 'Save to library') {
-        // Simple save without AI analysis
-        const title = generateIdeaTitle(firstUserMessage);
-        const newIdeaId = await createIdea(user.uid, {
-          title,
-          originalInput: firstUserMessage,
-          tags: [selectedCategory || 'Uncategorized'], // Use selected category
-          status: 'active',
-        });
-
-        // Save chat messages to the idea
-        const chatMessages = messages.filter((msg) => msg.id !== '1');
-        for (const msg of chatMessages) {
-          await addChatMessage(newIdeaId, msg.role, msg.content);
-        }
-
-        Alert.alert(
-          'Success',
-          'Your idea has been saved to the library!',
-          [
-            {
-              text: 'View Idea',
-              onPress: () => navigation.navigate('Workspace', { ideaId: newIdeaId }),
-            },
-            {
-              text: 'Go to Dashboard',
-              onPress: () => navigation.navigate('DashboardHome'),
-            },
-          ]
-        );
-      } else {
-        // Other quick replies (List next steps, Show similar concepts)
-        Alert.alert(
-          'Coming Soon',
-          'This feature will generate specific cards. For now, use "Summarize & analyze" to generate all cards at once.',
-          [{ text: 'OK' }]
-        );
       }
     } catch (error) {
       console.error('Error processing idea:', error);
@@ -306,18 +391,15 @@ export default function ChatScreen({ navigation, route }) {
           {saving ? (
             <View style={styles.savingContainer}>
               <ActivityIndicator size="small" color={Colors.accent1} />
-              <Text style={styles.savingText}>Saving...</Text>
+              <Text style={styles.savingText}>Preparing analysis...</Text>
             </View>
           ) : (
-            quickReplies.map((reply, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.quickReplyChip}
-                onPress={() => handleQuickReply(reply)}
-              >
-                <Text style={styles.quickReplyText}>{reply}</Text>
-              </TouchableOpacity>
-            ))
+            <TouchableOpacity
+              style={styles.quickReplyChip}
+              onPress={() => handleQuickReply('Summarize & analyze')}
+            >
+              <Text style={styles.quickReplyText}>Summarize & analyze</Text>
+            </TouchableOpacity>
           )}
         </View>
       )}
@@ -332,9 +414,18 @@ export default function ChatScreen({ navigation, route }) {
           onChangeText={setInputText}
           multiline
           maxLength={500}
+          editable={!isAIThinking}
         />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Text style={styles.sendButtonText}>→</Text>
+        <TouchableOpacity
+          style={[styles.sendButton, isAIThinking && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={isAIThinking}
+        >
+          {isAIThinking ? (
+            <ActivityIndicator size="small" color={Colors.textPrimary} />
+          ) : (
+            <Text style={styles.sendButtonText}>→</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -456,6 +547,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
   sendButtonText: {
     color: Colors.textPrimary,

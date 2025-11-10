@@ -9,15 +9,22 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
 
 /**
- * Generate all three cards for an idea
+ * Generate all analysis cards for an idea
  * @param {string} ideaId - The Firestore document ID of the idea
  * @param {string} ideaText - The user's raw idea input
- * @returns {Promise<Object>} - Object containing title and cards (summary, nextSteps, similarConcepts)
+ * @param {string} conversationTranscript - Full conversation transcript (optional)
+ * @param {string} category - Detected or selected category (optional)
+ * @returns {Promise<Object>} - Object containing title and cards
  */
-export const generateIdeaCards = async (ideaId, ideaText) => {
+export const generateIdeaCards = async (ideaId, ideaText, conversationTranscript = null, category = null) => {
   try {
     const generateCards = httpsCallable(functions, 'generateIdeaCards');
-    const result = await generateCards({ ideaId, ideaText });
+    const result = await generateCards({
+      ideaId,
+      ideaText,
+      conversationTranscript,
+      category
+    });
     return result.data;
   } catch (error) {
     console.error('Error generating idea cards:', error);
