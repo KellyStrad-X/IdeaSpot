@@ -67,13 +67,16 @@ export default function ChatScreen({ navigation, route }) {
           const ideaData = await getIdea(ideaId);
           if (ideaData && ideaData.cards && !ideaData.analyzing) {
             // This is a continuation - idea has been analyzed
+            const businessName = ideaData.cards?.mvp?.name || ideaData.cards?.conceptBranding?.name || null;
+
             setIsContinuation(true);
             setIdeaContext({
               title: ideaData.title,
               category: ideaData.tags?.[0] || 'General',
               summary: ideaData.cards.summary,
-              businessName: ideaData.cards?.mvp?.name || ideaData.cards?.conceptBranding?.name || null,
+              businessName,
             });
+
             // Change greeting for continuation
             setMessages([
               {
@@ -82,6 +85,23 @@ export default function ChatScreen({ navigation, route }) {
                 content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
               },
             ]);
+
+            // Update navigation header to show business name
+            if (businessName) {
+              navigation.setOptions({
+                headerRight: () => (
+                  <TouchableOpacity
+                    onPress={handleEditBusinessName}
+                    style={{ marginRight: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  >
+                    <Text style={{ color: Colors.accent4, fontSize: 17, fontWeight: '600', fontStyle: 'italic' }}>
+                      {businessName}
+                    </Text>
+                    <Ionicons name="pencil" size={14} color="#fff" style={{ opacity: 0.8 }} />
+                  </TouchableOpacity>
+                ),
+              });
+            }
           }
         } catch (error) {
           console.error('Error loading idea context:', error);
@@ -286,12 +306,14 @@ export default function ChatScreen({ navigation, route }) {
   const handleSaveBusinessName = async () => {
     if (editBusinessNameValue && editBusinessNameValue.trim()) {
       try {
+        const newName = editBusinessNameValue.trim();
+
         // Update in Firestore
         const updateData = {
           cards: {
             ...ideaContext,
             mvp: {
-              name: editBusinessNameValue.trim(),
+              name: newName,
             }
           }
         };
@@ -301,7 +323,22 @@ export default function ChatScreen({ navigation, route }) {
         // Update local context
         setIdeaContext({
           ...ideaContext,
-          businessName: editBusinessNameValue.trim(),
+          businessName: newName,
+        });
+
+        // Update navigation header
+        navigation.setOptions({
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleEditBusinessName}
+              style={{ marginRight: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <Text style={{ color: Colors.accent4, fontSize: 17, fontWeight: '600', fontStyle: 'italic' }}>
+                {newName}
+              </Text>
+              <Ionicons name="pencil" size={14} color="#fff" style={{ opacity: 0.8 }} />
+            </TouchableOpacity>
+          ),
         });
 
         setEditBusinessNameModalVisible(false);
@@ -503,20 +540,6 @@ export default function ChatScreen({ navigation, route }) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <StatusBar barStyle="light-content" />
-
-      {/* Header with Business Name */}
-      {isContinuation && ideaContext?.businessName && (
-        <View style={styles.chatHeader}>
-          <TouchableOpacity
-            style={styles.businessNameContainer}
-            onPress={handleEditBusinessName}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.businessName}>{ideaContext.businessName}</Text>
-            <Ionicons name="pencil" size={14} color="#fff" style={styles.editIcon} />
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Background Logo */}
       <Image
@@ -815,27 +838,6 @@ const styles = StyleSheet.create({
   },
   typingDot3: {
     opacity: 1,
-  },
-  chatHeader: {
-    paddingTop: (StatusBar.currentHeight || 24) + 8,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  businessNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  businessName: {
-    color: Colors.accent4,
-    fontSize: 17,
-    fontWeight: '600',
-    fontStyle: 'italic',
-  },
-  editIcon: {
-    opacity: 0.8,
   },
   modalOverlay: {
     flex: 1,
