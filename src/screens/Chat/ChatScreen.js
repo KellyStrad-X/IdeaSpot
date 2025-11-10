@@ -67,6 +67,7 @@ export default function ChatScreen({ navigation, route }) {
               title: ideaData.title,
               category: ideaData.tags?.[0] || 'General',
               summary: ideaData.cards.summary,
+              businessName: ideaData.cards?.mvp?.name || ideaData.cards?.conceptBranding?.name || null,
             });
             // Change greeting for continuation
             setMessages([
@@ -463,6 +464,13 @@ export default function ChatScreen({ navigation, route }) {
     >
       <StatusBar barStyle="light-content" />
 
+      {/* Continuation Header with Business Name */}
+      {isContinuation && ideaContext?.businessName && (
+        <View style={styles.continuationHeader}>
+          <Text style={styles.businessNameHeader}>{ideaContext.businessName}</Text>
+        </View>
+      )}
+
       {/* Background Logo */}
       <Image
         source={require('../../../assets/logo.png')}
@@ -714,5 +722,23 @@ const styles = StyleSheet.create({
   },
   typingDot3: {
     opacity: 1,
+  },
+  continuationHeader: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 16 || 56,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: Colors.accent4,
+  },
+  businessNameHeader: {
+    color: Colors.accent4,
+    fontSize: 16,
+    fontWeight: '600',
+    fontStyle: 'italic',
   },
 });
