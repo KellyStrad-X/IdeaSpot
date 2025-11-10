@@ -86,39 +86,60 @@ export default function ChatScreen({ navigation, route }) {
     loadIdeaContext();
   }, [ideaId]);
 
-  // Load existing chat history if continuing an idea (only on mount)
+  // Load chat history based on mode
   useEffect(() => {
-    if (currentIdeaId) {
+    if (!currentIdeaId) return;
+
+    if (isContinuation) {
+      // For continuation: subscribe to NEW continuation messages only
+      // Use a separate subcollection or filter by timestamp after analysis
+      const unsubscribe = subscribeToChatHistory(currentIdeaId, (chatMessages) => {
+        // Filter to only messages marked as continuation (we'll add this flag when saving)
+        const continuationMessages = chatMessages.filter(msg => msg.isContinuation);
+
+        if (continuationMessages.length > 0) {
+          setMessages((prevMessages) => {
+            const greeting = prevMessages[0];
+            const historyMessages = continuationMessages.map((msg, index) => ({
+              id: `cont-${index}-${msg.content.substring(0, 10)}`,
+              role: msg.role,
+              content: msg.content,
+            }));
+
+            return [greeting, ...historyMessages];
+          });
+        }
+      });
+
+      return () => unsubscribe();
+    } else {
+      // For initial intake: load intake messages
       const unsubscribe = subscribeToChatHistory(currentIdeaId, (chatMessages) => {
         setMessages((prevMessages) => {
-          // Keep the initial greeting
           const greeting = prevMessages[0];
 
-          // Convert Firestore messages to UI format
           const historyMessages = chatMessages.map((msg, index) => ({
             id: `history-${index}-${msg.content.substring(0, 10)}`,
             role: msg.role,
             content: msg.content,
           }));
 
-          // Combine greeting with history, avoiding duplicates based on content
           const allMessages = [greeting, ...historyMessages];
           const uniqueMessages = allMessages.filter((msg, index, self) =>
-            index === 0 || // Always keep greeting
+            index === 0 ||
             self.findIndex(m => m.content === msg.content && m.role === msg.role) === index
           );
 
           return uniqueMessages;
         });
 
-        // Update question count based on chat history
         const assistantMessages = chatMessages.filter(msg => msg.role === 'assistant');
         setQuestionCount(assistantMessages.length);
       });
 
       return () => unsubscribe();
     }
-  }, [currentIdeaId]);
+  }, [currentIdeaId, isContinuation]);
 
   // Auto-scroll when messages change or AI is thinking
   useEffect(() => {
@@ -201,8 +222,8 @@ export default function ChatScreen({ navigation, route }) {
         setCurrentIdeaId(tempIdeaId);
       }
 
-      // Save user message to Firestore
-      await addChatMessage(tempIdeaId, 'user', userMessageContent);
+      // Save user message to Firestore (mark as continuation if applicable)
+      await addChatMessage(tempIdeaId, 'user', userMessageContent, isContinuation);
 
       // Get chat history (excluding the initial greeting)
       const chatHistory = messages.slice(1).map(msg => ({
@@ -219,8 +240,8 @@ export default function ChatScreen({ navigation, route }) {
         ideaContext
       );
 
-      // Save AI response to Firestore
-      await addChatMessage(tempIdeaId, 'assistant', aiResponse);
+      // Save AI response to Firestore (mark as continuation if applicable)
+      await addChatMessage(tempIdeaId, 'assistant', aiResponse, isContinuation);
 
       // Increment question count
       const newQuestionCount = questionCount + 1;
