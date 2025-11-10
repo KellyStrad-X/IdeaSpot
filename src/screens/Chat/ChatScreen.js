@@ -244,6 +244,11 @@ export default function ChatScreen({ navigation, route }) {
     setInputText('');
     setIsAIThinking(true);
 
+    // Keep keyboard open - refocus input immediately
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+
     // Store first user message for creating idea title
     if (!firstUserMessage) {
       setFirstUserMessage(userMessageContent);
@@ -288,9 +293,18 @@ export default function ChatScreen({ navigation, route }) {
         const newQuestionCount = questionCount + 1;
         setQuestionCount(newQuestionCount);
 
-        // Show analyze button after enough questions (3-4)
+        // After enough questions, AI sends final message with analyze button
         if (newQuestionCount >= maxQuestions - 1) {
-          setShowQuickReplies(true);
+          // Add AI's "ready to analyze" message with inline button
+          const readyMessage = {
+            id: `ready-${Date.now()}`,
+            role: 'assistant',
+            content: "Great! I think I have enough context now. Ready for me to analyze your idea?",
+            showAnalyzeButton: true,
+          };
+
+          setMessages((prev) => [...prev, readyMessage]);
+          await addChatMessage(tempIdeaId, 'assistant', readyMessage.content, false);
         }
       }
 
@@ -488,20 +502,41 @@ export default function ChatScreen({ navigation, route }) {
             resizeMode="contain"
           />
         )}
-        <View
-          style={[
-            styles.messageBubble,
-            isUser ? styles.userBubble : styles.aiBubble,
-          ]}
-        >
-          <Text
+        <View style={{ flex: 1 }}>
+          <View
             style={[
-              styles.messageText,
-              isUser ? styles.userText : styles.aiText,
+              styles.messageBubble,
+              isUser ? styles.userBubble : styles.aiBubble,
             ]}
           >
-            {item.content}
-          </Text>
+            <Text
+              style={[
+                styles.messageText,
+                isUser ? styles.userText : styles.aiText,
+              ]}
+            >
+              {item.content}
+            </Text>
+          </View>
+
+          {/* Show analyze button inline with AI message if flagged */}
+          {item.showAnalyzeButton && (
+            <View style={styles.inlineButtonContainer}>
+              {saving ? (
+                <View style={styles.savingContainer}>
+                  <ActivityIndicator size="small" color={Colors.accent1} />
+                  <Text style={styles.savingText}>Preparing analysis...</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.quickReplyChip}
+                  onPress={() => handleQuickReply('Summarize & analyze')}
+                >
+                  <Text style={styles.quickReplyText}>Summarize & analyze</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </View>
     );
@@ -589,25 +624,6 @@ export default function ChatScreen({ navigation, route }) {
               <Text style={styles.categoryText}>{category}</Text>
             </TouchableOpacity>
           ))}
-        </View>
-      )}
-
-      {/* Quick Replies */}
-      {showQuickReplies && (
-        <View style={styles.quickRepliesContainer}>
-          {saving ? (
-            <View style={styles.savingContainer}>
-              <ActivityIndicator size="small" color={Colors.accent1} />
-              <Text style={styles.savingText}>Preparing analysis...</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.quickReplyChip}
-              onPress={() => handleQuickReply('Summarize & analyze')}
-            >
-              <Text style={styles.quickReplyText}>Summarize & analyze</Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
 
@@ -739,6 +755,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
+  inlineButtonContainer: {
+    marginTop: 8,
+    marginLeft: 0,
+  },
   quickReplyChip: {
     backgroundColor: Colors.surface,
     paddingHorizontal: 16,
@@ -748,6 +768,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: Colors.accent1,
+    alignSelf: 'flex-start',
   },
   quickReplyText: {
     color: Colors.accent1,
