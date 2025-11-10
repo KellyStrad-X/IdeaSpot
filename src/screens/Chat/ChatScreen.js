@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
@@ -44,6 +45,9 @@ export default function ChatScreen({ navigation, route }) {
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
   const flatListRef = useRef(null);
+  const dot1Anim = useRef(new Animated.Value(0)).current;
+  const dot2Anim = useRef(new Animated.Value(0)).current;
+  const dot3Anim = useRef(new Animated.Value(0)).current;
 
   const categories = ['App', 'Product', 'Service', 'Software'];
   const maxQuestions = 4; // AI will ask 3-4 qualifying questions
@@ -81,6 +85,53 @@ export default function ChatScreen({ navigation, route }) {
       return () => unsubscribe();
     }
   }, [currentIdeaId]);
+
+  // Auto-scroll when messages change or AI is thinking
+  useEffect(() => {
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, [messages, isAIThinking]);
+
+  // Bouncing dots animation
+  useEffect(() => {
+    if (isAIThinking) {
+      const bounce = (anim, delay) => {
+        return Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(anim, {
+              toValue: -8,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+      };
+
+      const dot1Animation = bounce(dot1Anim, 0);
+      const dot2Animation = bounce(dot2Anim, 150);
+      const dot3Animation = bounce(dot3Anim, 300);
+
+      dot1Animation.start();
+      dot2Animation.start();
+      dot3Animation.start();
+
+      return () => {
+        dot1Animation.stop();
+        dot2Animation.stop();
+        dot3Animation.stop();
+        dot1Anim.setValue(0);
+        dot2Anim.setValue(0);
+        dot3Anim.setValue(0);
+      };
+    }
+  }, [isAIThinking]);
 
   const handleSend = async () => {
     if (inputText.trim() === '' || isAIThinking) return;
@@ -304,6 +355,45 @@ export default function ChatScreen({ navigation, route }) {
     );
   };
 
+  const renderTypingIndicator = () => {
+    if (!isAIThinking) return null;
+
+    return (
+      <View style={styles.typingIndicatorContainer}>
+        <Image
+          source={require('../../../assets/logo.png')}
+          style={styles.aiProfileIcon}
+          resizeMode="contain"
+        />
+        <View style={styles.typingBubble}>
+          <View style={styles.typingDots}>
+            <Animated.View
+              style={[
+                styles.typingDot,
+                styles.typingDot1,
+                { transform: [{ translateY: dot1Anim }] },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.typingDot,
+                styles.typingDot2,
+                { transform: [{ translateY: dot2Anim }] },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.typingDot,
+                styles.typingDot3,
+                { transform: [{ translateY: dot3Anim }] },
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -329,6 +419,10 @@ export default function ChatScreen({ navigation, route }) {
         onContentSizeChange={() =>
           flatListRef.current?.scrollToEnd({ animated: true })
         }
+        onLayout={() =>
+          flatListRef.current?.scrollToEnd({ animated: false })
+        }
+        ListFooterComponent={renderTypingIndicator}
       />
 
       {/* Category Selection */}
@@ -526,5 +620,38 @@ const styles = StyleSheet.create({
     left: '50%',
     marginLeft: -225,
     zIndex: 0,
+  },
+  typingIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  typingBubble: {
+    backgroundColor: Colors.aiMessage,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    maxWidth: '80%',
+  },
+  typingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.textSecondary,
+  },
+  typingDot1: {
+    opacity: 0.4,
+  },
+  typingDot2: {
+    opacity: 0.7,
+  },
+  typingDot3: {
+    opacity: 1,
   },
 });
