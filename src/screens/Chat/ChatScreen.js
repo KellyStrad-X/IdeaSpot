@@ -242,12 +242,6 @@ export default function ChatScreen({ navigation, route }) {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
-
-    // Keep keyboard open by maintaining focus
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-
     setIsAIThinking(true);
 
     // Store first user message for creating idea title
@@ -289,16 +283,15 @@ export default function ChatScreen({ navigation, route }) {
       // Save AI response to Firestore (mark as continuation if applicable)
       await addChatMessage(tempIdeaId, 'assistant', aiResponse, isContinuation);
 
-      // Increment question count
-      const newQuestionCount = questionCount + 1;
-      setQuestionCount(newQuestionCount);
+      // Increment question count (only in initial intake mode)
+      if (!isContinuation) {
+        const newQuestionCount = questionCount + 1;
+        setQuestionCount(newQuestionCount);
 
-      // Check if AI is ready to analyze (after 3-4 questions)
-      if (newQuestionCount >= maxQuestions - 1 &&
-          (aiResponse.toLowerCase().includes('ready') ||
-           aiResponse.toLowerCase().includes('analyze') ||
-           aiResponse.toLowerCase().includes('insights'))) {
-        setShowQuickReplies(true);
+        // Show analyze button after enough questions (3-4)
+        if (newQuestionCount >= maxQuestions - 1) {
+          setShowQuickReplies(true);
+        }
       }
 
     } catch (error) {
