@@ -73,12 +73,20 @@ export const regenerateBusinessName = async (ideaId, ideaText) => {
  * @param {string} ideaId - The ID of the idea being discussed
  * @param {Array} chatHistory - Previous chat messages
  * @param {string} userMessage - New message from user
+ * @param {boolean} isContinuation - Whether this is continuing an analyzed idea
+ * @param {Object} ideaContext - Context about the idea (title, category, summary)
  * @returns {Promise<string>} - AI response
  */
-export const continueChat = async (ideaId, chatHistory, userMessage) => {
+export const continueChat = async (ideaId, chatHistory, userMessage, isContinuation = false, ideaContext = null) => {
   try {
     const chat = httpsCallable(functions, 'continueChat');
-    const result = await chat({ ideaId, chatHistory, userMessage });
+    const result = await chat({
+      ideaId,
+      chatHistory,
+      userMessage,
+      isContinuation,
+      ideaContext
+    });
     return result.data.response;
   } catch (error) {
     console.error('Error in chat:', error);

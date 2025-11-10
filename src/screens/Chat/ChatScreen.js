@@ -44,6 +44,8 @@ export default function ChatScreen({ navigation, route }) {
   const [saving, setSaving] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [questionCount, setQuestionCount] = useState(0);
+  const [ideaContext, setIdeaContext] = useState(null);
+  const [isContinuation, setIsContinuation] = useState(false);
   const flatListRef = useRef(null);
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
@@ -51,6 +53,38 @@ export default function ChatScreen({ navigation, route }) {
 
   const categories = ['App', 'Product', 'Service', 'Software'];
   const maxQuestions = 4; // AI will ask 3-4 qualifying questions
+
+  // Load idea context if this is a continuation
+  useEffect(() => {
+    const loadIdeaContext = async () => {
+      if (ideaId) {
+        try {
+          const ideaData = await getIdea(ideaId);
+          if (ideaData && ideaData.cards && !ideaData.analyzing) {
+            // This is a continuation - idea has been analyzed
+            setIsContinuation(true);
+            setIdeaContext({
+              title: ideaData.title,
+              category: ideaData.tags?.[0] || 'General',
+              summary: ideaData.cards.summary,
+            });
+            // Change greeting for continuation
+            setMessages([
+              {
+                id: '1',
+                role: 'assistant',
+                content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
+              },
+            ]);
+          }
+        } catch (error) {
+          console.error('Error loading idea context:', error);
+        }
+      }
+    };
+
+    loadIdeaContext();
+  }, [ideaId]);
 
   // Load existing chat history if continuing an idea (only on mount)
   useEffect(() => {
@@ -176,8 +210,14 @@ export default function ChatScreen({ navigation, route }) {
         content: msg.content
       }));
 
-      // Call AI via Cloud Function
-      const aiResponse = await continueChat(tempIdeaId, chatHistory, userMessageContent);
+      // Call AI via Cloud Function with continuation context
+      const aiResponse = await continueChat(
+        tempIdeaId,
+        chatHistory,
+        userMessageContent,
+        isContinuation,
+        ideaContext
+      );
 
       // Save AI response to Firestore
       await addChatMessage(tempIdeaId, 'assistant', aiResponse);

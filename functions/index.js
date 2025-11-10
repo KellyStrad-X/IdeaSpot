@@ -489,7 +489,7 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { ideaId, userMessage, chatHistory } = data;
+  const { ideaId, userMessage, chatHistory, isContinuation, ideaContext } = data;
 
   if (!ideaId || !userMessage) {
     throw new functions.https.HttpsError(
@@ -507,16 +507,39 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
     }
 
     // Build conversation history for OpenAI
-    const messages = [
-      {
-        role: 'system',
-        content: `You are an enthusiastic idea development assistant. Your goal is to help users flesh out their ideas through natural conversation.
+    let systemPrompt = '';
+
+    if (isContinuation && ideaContext) {
+      // Continuation mode - help explore existing idea
+      systemPrompt = `You are an enthusiastic idea development assistant helping someone explore and refine their existing idea.
+
+IDEA CONTEXT:
+Title: ${ideaContext.title}
+Category: ${ideaContext.category}
+Problem: ${ideaContext.summary?.problem || 'N/A'}
+Target Audience: ${ideaContext.summary?.audience || 'N/A'}
+Value Proposition: ${ideaContext.summary?.valueProp || 'N/A'}
+
+The user has already been through the initial intake and analysis. Now they want to explore specific aspects of their idea, ask questions, or discuss refinements.
+
+Be helpful, insightful, and stay focused on their idea. Help them think through challenges, explore opportunities, and refine their concept.
+
+Keep responses brief and conversational - 1-2 sentences max.`;
+    } else {
+      // Initial intake mode
+      systemPrompt = `You are an enthusiastic idea development assistant. Your goal is to help users flesh out their ideas through natural conversation.
 
 After the user shares their initial idea, have a natural conversation to understand what they're trying to build, who it's for, and how it would work.
 
 Ask 3-4 thoughtful questions. When you have enough detail, let them know you're ready to analyze.
 
-Keep your responses brief and conversational - 1-2 sentences max. Don't follow a rigid script - respond genuinely to what they share.`,
+Keep your responses brief and conversational - 1-2 sentences max. Don't follow a rigid script - respond genuinely to what they share.`;
+    }
+
+    const messages = [
+      {
+        role: 'system',
+        content: systemPrompt,
       },
     ];
 
