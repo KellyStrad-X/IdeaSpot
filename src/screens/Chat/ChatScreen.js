@@ -22,6 +22,7 @@ import {
   createIdea,
   addChatMessage,
   subscribeToChatHistory,
+  getChatHistory,
   getIdea,
   updateIdea,
 } from '../../services/firestore';
@@ -77,14 +78,24 @@ export default function ChatScreen({ navigation, route }) {
               businessName,
             });
 
-            // Change greeting for continuation
-            setMessages([
-              {
-                id: '1',
-                role: 'assistant',
-                content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
-              },
-            ]);
+            // Load continuation chat history
+            const chatHistory = await getChatHistory(ideaId);
+            const continuationMessages = chatHistory.filter(msg => msg.isContinuation);
+
+            // Set messages with greeting + continuation history all at once (prevents flash)
+            const greeting = {
+              id: '1',
+              role: 'assistant',
+              content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
+            };
+
+            const historyMessages = continuationMessages.map((msg, index) => ({
+              id: `cont-${index}-${msg.timestamp}`,
+              role: msg.role,
+              content: msg.content,
+            }));
+
+            setMessages([greeting, ...historyMessages]);
 
             // Update navigation header to show business name
             if (businessName) {
@@ -112,29 +123,25 @@ export default function ChatScreen({ navigation, route }) {
     loadIdeaContext();
   }, [ideaId]);
 
-  // Load chat history based on mode
+  // Subscribe to real-time chat updates based on mode
   useEffect(() => {
     if (!currentIdeaId) return;
 
     if (isContinuation) {
-      // For continuation: subscribe to NEW continuation messages only
-      // Use a separate subcollection or filter by timestamp after analysis
+      // For continuation: subscribe to continuation messages for real-time updates
       const unsubscribe = subscribeToChatHistory(currentIdeaId, (chatMessages) => {
-        // Filter to only messages marked as continuation (we'll add this flag when saving)
         const continuationMessages = chatMessages.filter(msg => msg.isContinuation);
 
-        if (continuationMessages.length > 0) {
-          setMessages((prevMessages) => {
-            const greeting = prevMessages[0];
-            const historyMessages = continuationMessages.map((msg, index) => ({
-              id: `cont-${index}-${msg.content.substring(0, 10)}`,
-              role: msg.role,
-              content: msg.content,
-            }));
+        setMessages((prevMessages) => {
+          const greeting = prevMessages[0];
+          const historyMessages = continuationMessages.map((msg, index) => ({
+            id: `cont-${index}-${msg.timestamp}`,
+            role: msg.role,
+            content: msg.content,
+          }));
 
-            return [greeting, ...historyMessages];
-          });
-        }
+          return [greeting, ...historyMessages];
+        });
       });
 
       return () => unsubscribe();
@@ -145,7 +152,7 @@ export default function ChatScreen({ navigation, route }) {
           const greeting = prevMessages[0];
 
           const historyMessages = chatMessages.map((msg, index) => ({
-            id: `history-${index}-${msg.content.substring(0, 10)}`,
+            id: `history-${index}-${msg.timestamp}`,
             role: msg.role,
             content: msg.content,
           }));
