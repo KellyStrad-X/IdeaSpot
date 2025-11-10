@@ -516,7 +516,7 @@ After the user shares their initial idea, have a natural conversation to underst
 
 Ask 3-4 thoughtful questions. When you have enough detail, let them know you're ready to analyze.
 
-Don't follow a rigid script - respond genuinely to what they share.`,
+Keep your responses brief and conversational - 1-2 sentences max. Don't follow a rigid script - respond genuinely to what they share.`,
       },
     ];
 
