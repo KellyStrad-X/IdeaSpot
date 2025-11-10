@@ -48,17 +48,34 @@ export default function ChatScreen({ navigation, route }) {
   const categories = ['App', 'Product', 'Service', 'Software'];
   const maxQuestions = 4; // AI will ask 3-4 qualifying questions
 
-  // Load existing chat history if continuing an idea
+  // Load existing chat history if continuing an idea (only on mount)
   useEffect(() => {
     if (currentIdeaId) {
       const unsubscribe = subscribeToChatHistory(currentIdeaId, (chatMessages) => {
-        // Keep the initial greeting and add chat history
-        const historyMessages = chatMessages.map((msg, index) => ({
-          id: `history-${index}`,
-          role: msg.role,
-          content: msg.content,
-        }));
-        setMessages([messages[0], ...historyMessages]);
+        setMessages((prevMessages) => {
+          // Keep the initial greeting
+          const greeting = prevMessages[0];
+
+          // Convert Firestore messages to UI format
+          const historyMessages = chatMessages.map((msg, index) => ({
+            id: `history-${index}-${msg.content.substring(0, 10)}`,
+            role: msg.role,
+            content: msg.content,
+          }));
+
+          // Combine greeting with history, avoiding duplicates based on content
+          const allMessages = [greeting, ...historyMessages];
+          const uniqueMessages = allMessages.filter((msg, index, self) =>
+            index === 0 || // Always keep greeting
+            self.findIndex(m => m.content === msg.content && m.role === msg.role) === index
+          );
+
+          return uniqueMessages;
+        });
+
+        // Update question count based on chat history
+        const assistantMessages = chatMessages.filter(msg => msg.role === 'assistant');
+        setQuestionCount(assistantMessages.length);
       });
 
       return () => unsubscribe();
@@ -87,32 +104,6 @@ export default function ChatScreen({ navigation, route }) {
     }
 
     try {
-      // Get AI response using the conversational AI
-      const chatHistory = messages.slice(1).map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      // System prompt for AI to be inquisitive and ask qualifying questions
-      const systemPrompt = `You are an enthusiastic, creative idea development assistant. Your goal is to help the user flesh out their idea by asking 3-4 insightful qualifying questions.
-
-Be:
-- Inquisitive and genuinely interested in their idea
-- Personable and conversational
-- Creative in helping them shape the idea
-- Focused on understanding the core aspects: target audience, key features/offerings, unique value, and any constraints
-
-Ask ONE question at a time. After ${maxQuestions} questions (or when you have enough detail), let the user know you're ready to analyze and show them insights.
-
-Try to naturally determine if this is an App, Product, Service, or Software idea based on the conversation.`;
-
-      // Build full conversation for AI
-      const fullContext = [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory,
-        { role: 'user', content: userMessageContent }
-      ];
-
       // Create a temporary idea if we don't have one yet (for chat history)
       let tempIdeaId = currentIdeaId;
       if (!tempIdeaId) {
@@ -125,69 +116,39 @@ Try to naturally determine if this is an App, Product, Service, or Software idea
         setCurrentIdeaId(tempIdeaId);
       }
 
-      // Save user message
+      // Save user message to Firestore
       await addChatMessage(tempIdeaId, 'user', userMessageContent);
 
-      // Get AI response - we'll use a simple prompt-based approach since continueChat needs an existing idea
-      // For now, we'll create a conversational flow with predetermined logic
-      const currentQuestionNum = questionCount + 1;
+      // Get chat history (excluding the initial greeting)
+      const chatHistory = messages.slice(1).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
 
-      let aiResponse = '';
+      // Call AI via Cloud Function
+      const aiResponse = await continueChat(tempIdeaId, chatHistory, userMessageContent);
 
-      if (currentQuestionNum === 1) {
-        // First question - ask about target audience or users
-        aiResponse = "That sounds interesting! Tell me more - who is this for? Who would benefit most from this idea?";
-      } else if (currentQuestionNum === 2) {
-        // Second question - ask about core value or features
-        aiResponse = "Great! And what's the main problem this solves for them? What would be the core offering or key feature?";
-      } else if (currentQuestionNum === 3) {
-        // Third question - ask about unique angle or delivery
-        aiResponse = "I'm getting a clearer picture. What makes this different from existing solutions? Is there a unique angle or approach you're considering?";
-      } else if (currentQuestionNum === 4) {
-        // Fourth question - ask about constraints or monetization hints
-        aiResponse = "Excellent! Last question - are there any specific constraints I should know about? Budget, timeline, or resources you're working with?";
-        setQuestionCount(currentQuestionNum);
-
-        // After answering, show the analyze button
-        setTimeout(() => {
-          const readyMessage = {
-            id: (Date.now() + 2).toString(),
-            role: 'assistant',
-            content: "Perfect! I have a good understanding of your idea now. Ready for me to analyze it and create your personalized insights?",
-          };
-          setMessages((prev) => [...prev, readyMessage]);
-          setShowQuickReplies(true);
-          setIsAIThinking(false);
-        }, 1000);
-
-        await addChatMessage(tempIdeaId, 'assistant', aiResponse);
-
-        const aiMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: aiResponse,
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-        setIsAIThinking(false);
-        return;
-      }
-
-      setQuestionCount(currentQuestionNum);
-
-      // Save AI response
+      // Save AI response to Firestore
       await addChatMessage(tempIdeaId, 'assistant', aiResponse);
 
-      // Add AI message to UI
-      const aiMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: aiResponse,
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+      // Increment question count
+      const newQuestionCount = questionCount + 1;
+      setQuestionCount(newQuestionCount);
+
+      // Check if AI is ready to analyze (after 3-4 questions)
+      if (newQuestionCount >= maxQuestions - 1 &&
+          (aiResponse.toLowerCase().includes('ready') ||
+           aiResponse.toLowerCase().includes('analyze') ||
+           aiResponse.toLowerCase().includes('insights'))) {
+        setShowQuickReplies(true);
+      }
 
     } catch (error) {
       console.error('Error getting AI response:', error);
       Alert.alert('Error', 'Failed to get AI response. Please try again.');
+
+      // Remove the user message from UI on error
+      setMessages((prev) => prev.filter(msg => msg.id !== userMessage.id));
     } finally {
       setIsAIThinking(false);
     }

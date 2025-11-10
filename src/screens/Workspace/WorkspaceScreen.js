@@ -295,32 +295,6 @@ export default function WorkspaceScreen({ navigation, route }) {
     return () => clearTimeout(timeoutId);
   }, [notes, ideaId, idea, currentCanvasId, draggingNoteId]);
 
-  // Save elevator pitch when it changes
-  useEffect(() => {
-    // Skip saving on initial mount and when idea hasn't loaded yet
-    if (!idea || !ideaId) return;
-
-    const saveElevatorPitch = async () => {
-      try {
-        await updateIdea(ideaId, {
-          cards: {
-            ...idea.cards,
-            conceptBranding: {
-              ...idea.cards?.conceptBranding,
-              elevatorPitch: elevatorPitch,
-            }
-          }
-        });
-        console.log('✅ Saved elevator pitch');
-      } catch (error) {
-        console.error('Error saving elevator pitch:', error);
-      }
-    };
-
-    // Debounce the save
-    const timeoutId = setTimeout(saveElevatorPitch, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [elevatorPitch, ideaId, idea]);
 
   // Format date for display
   const formatDate = (timestamp) => {

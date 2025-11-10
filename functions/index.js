@@ -60,7 +60,7 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
     }
 
     // Generate all cards in parallel for speed
-    const context = conversationTranscript || ideaText;
+    const conversationContext = conversationTranscript || ideaText;
     const ideaCategory = category || 'General';
 
     const [
@@ -71,11 +71,11 @@ exports.generateIdeaCards = functions.https.onCall(async (data, context) => {
       mvpCard,
       title,
     ] = await Promise.all([
-      generateSummaryCard(context, ideaCategory),
-      generateActionableInsightsCard(context, ideaCategory),
-      generateUserScenariosCard(context, ideaCategory),
-      generateMonetizationCard(context, ideaCategory),
-      generateMVPCard(context, ideaCategory),
+      generateSummaryCard(conversationContext, ideaCategory),
+      generateActionableInsightsCard(conversationContext, ideaCategory),
+      generateUserScenariosCard(conversationContext, ideaCategory),
+      generateMonetizationCard(conversationContext, ideaCategory),
+      generateMVPCard(conversationContext, ideaCategory),
       generateTitle(ideaText),
     ]);
 
@@ -510,7 +510,17 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
     const messages = [
       {
         role: 'system',
-        content: `You are an idea development assistant helping someone refine and develop their business idea. Be conversational, encouraging, and provide specific, actionable advice.`,
+        content: `You are an enthusiastic idea development assistant. Your goal is to help users flesh out their ideas through natural conversation.
+
+After the user shares their initial idea, ask 3-4 thoughtful questions to understand:
+- Who this is for and what problem it solves
+- Key features or offerings
+- What makes it unique
+- Any constraints or considerations
+
+Be natural and conversational - adapt your questions based on what they tell you. When you feel you have enough detail (typically after 3-4 exchanges), let them know you're ready to analyze their idea and create personalized insights.
+
+Don't follow a rigid script - respond genuinely to what they share.`,
       },
     ];
 
