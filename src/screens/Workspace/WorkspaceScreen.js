@@ -1050,7 +1050,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         style={styles.cardHeader}
         onPress={() => toggleCard('mvp')}
       >
-        <Text style={styles.cardTitle}>MVP</Text>
+        <Text style={styles.cardTitle}>Core Concept</Text>
         <Text style={styles.expandIcon}>
           {expandedCard === 'mvp' ? '−' : '+'}
         </Text>
