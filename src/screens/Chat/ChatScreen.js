@@ -269,9 +269,6 @@ export default function ChatScreen({ navigation, route }) {
         setCurrentIdeaId(tempIdeaId);
       }
 
-      // Save user message to Firestore (mark as continuation if applicable)
-      await addChatMessage(tempIdeaId, 'user', userMessageContent, isContinuation);
-
       if (shouldTriggerAnalyzePrompt) {
         const readyMessage = {
           id: `ready-${Date.now()}`,
@@ -301,9 +298,6 @@ export default function ChatScreen({ navigation, route }) {
         isContinuation,
         ideaContext
       );
-
-      // Save AI response to Firestore (mark as continuation if applicable)
-      await addChatMessage(tempIdeaId, 'assistant', aiResponse, isContinuation);
 
       // Increment question count (only in initial intake mode)
       if (!isContinuation) {
