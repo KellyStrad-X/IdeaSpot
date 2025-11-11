@@ -21,6 +21,62 @@ function getOpenAI() {
   });
 }
 
+const formatBulletList = (items) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return '• Not specified';
+  }
+  return items.map((item) => `• ${item}`).join('\n');
+};
+
+const buildContinuationContext = (ideaContext = {}) => {
+  const sections = [];
+  const cards = ideaContext.cards || {};
+
+  if (cards.summary) {
+    const summary = cards.summary;
+    sections.push(`SUMMARY SNAPSHOT
+Problem: ${summary.problem || 'Not captured yet'}
+Audience: ${summary.audience || 'Not captured yet'}
+Value Proposition: ${summary.valueProp || 'Not captured yet'}
+Core Features:\n${formatBulletList(summary.features)}
+Reality Checks:\n${formatBulletList(summary.realityCheck)}`);
+  }
+
+  if (cards.actionableInsights?.insights?.length) {
+    const insightsText = cards.actionableInsights.insights
+      .map((insight) => `• ${insight.title}: ${insight.advice}`)
+      .join('\n');
+    sections.push(`ACTIONABLE INSIGHTS\n${insightsText}`);
+  }
+
+  if (cards.userScenarios?.scenarios?.length) {
+    const scenariosText = cards.userScenarios.scenarios
+      .map((scenario) => `• ${scenario.persona}: ${scenario.context} → ${scenario.outcome}`)
+      .join('\n');
+    sections.push(`USER SCENARIOS\n${scenariosText}`);
+  }
+
+  if (cards.monetization) {
+    const monetization = cards.monetization;
+    const pricing = Array.isArray(monetization.pricingTiers)
+      ? monetization.pricingTiers.map((tier) => `${tier.name} (${tier.price}): ${tier.features?.join(', ')}`).join('\n')
+      : null;
+    const alternatives = Array.isArray(monetization.alternativeModels)
+      ? monetization.alternativeModels.map((alt) => `${alt.name}: ${alt.description}`).join('\n')
+      : null;
+    sections.push(`MONETIZATION PLAN
+Primary Model: ${monetization.primaryModel || 'Not captured'}
+Rationale: ${monetization.modelRationale || 'Not captured'}
+Pricing:\n${pricing || '• Not specified'}${alternatives ? `\nAlternatives:\n${alternatives}` : ''}`);
+  }
+
+  if (cards.mvp?.guidance?.length) {
+    sections.push(`MVP ROADMAP\n${cards.mvp.guidance.map((step, index) => `${index + 1}. ${step}`).join('\n')}`);
+  }
+
+  return sections.join('\n\n').trim();
+};
+
 /**
  * Generate all AI cards for an idea
  * Triggered when user clicks "Summarize & analyze"
@@ -511,18 +567,19 @@ exports.continueChat = functions.https.onCall(async (data, context) => {
 
     if (isContinuation && ideaContext) {
       // Continuation mode - help explore existing idea
+      const cardsContext = buildContinuationContext(ideaContext);
+      const businessName = ideaContext.businessName || ideaContext.cards?.mvp?.name || 'their concept';
       systemPrompt = `You are an enthusiastic idea development assistant helping someone explore and refine their existing idea.
 
 IDEA CONTEXT:
 Title: ${ideaContext.title}
 Category: ${ideaContext.category}
-Problem: ${ideaContext.summary?.problem || 'N/A'}
-Target Audience: ${ideaContext.summary?.audience || 'N/A'}
-Value Proposition: ${ideaContext.summary?.valueProp || 'N/A'}
+Working Name: ${businessName}
+${cardsContext ? `\nEXISTING ANALYSIS:\n${cardsContext}` : ''}
 
 The user has already been through the initial intake and analysis. Now they want to explore specific aspects of their idea, ask questions, or discuss refinements.
 
-Be helpful, insightful, and stay focused on their idea. Help them think through challenges, explore opportunities, and refine their concept.
+Use the context above to keep advice grounded in what the AI already generated. Highlight how new questions tie back to that foundation, suggest refinements, and surface next steps.
 
 Keep responses brief and conversational - 1-2 sentences max.`;
     } else {

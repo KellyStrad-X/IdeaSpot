@@ -53,6 +53,7 @@ export default function ChatScreen({ navigation, route }) {
   const [isContinuation, setIsContinuation] = useState(false);
   const [editBusinessNameModalVisible, setEditBusinessNameModalVisible] = useState(false);
   const [editBusinessNameValue, setEditBusinessNameValue] = useState('');
+  const [hasPerformedInitialScroll, setHasPerformedInitialScroll] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
   const dot1Anim = useRef(new Animated.Value(0)).current;
@@ -72,13 +73,15 @@ export default function ChatScreen({ navigation, route }) {
           const ideaData = await getIdea(ideaId);
           if (ideaData && ideaData.cards && !ideaData.analyzing) {
             // This is a continuation - idea has been analyzed
-            const businessName = ideaData.cards?.mvp?.name || ideaData.cards?.conceptBranding?.name || null;
+            const cards = ideaData.cards || {};
+            const businessName = cards?.mvp?.name || cards?.conceptBranding?.name || null;
 
             setIsContinuation(true);
             setIdeaContext({
               title: ideaData.title,
               category: ideaData.tags?.[0] || 'General',
-              summary: ideaData.cards.summary,
+              summary: cards.summary,
+              cards,
               businessName,
             });
 
@@ -103,11 +106,14 @@ export default function ChatScreen({ navigation, route }) {
             };
 
             setMessages(shouldShowWelcomeBack ? [...allHistoryMessages, welcomeBackMessage] : allHistoryMessages);
+            setHasPerformedInitialScroll(false);
 
             // Track latest visit time to throttle welcome-back messaging
-            updateIdea(ideaId, { lastChatOpenedAt: Timestamp.now() }).catch((error) =>
-              console.error('Error updating last chat open time:', error)
-            );
+            try {
+              await updateIdea(ideaId, { lastChatOpenedAt: Timestamp.now() });
+            } catch (error) {
+              console.error('Error updating last chat open time:', error);
+            }
 
             // Update navigation header to show business name
             if (businessName) {
@@ -190,12 +196,32 @@ export default function ChatScreen({ navigation, route }) {
     }
   }, [currentIdeaId, isContinuation]);
 
+  useEffect(() => {
+    setHasPerformedInitialScroll(false);
+  }, [currentIdeaId]);
+
   // Auto-scroll when messages change or AI is thinking
   useEffect(() => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [messages, isAIThinking]);
+    if (!messages.length) return;
+
+    const scrollToBottom = (animated) => {
+      requestAnimationFrame(() => {
+        flatListRef.current?.scrollToEnd({ animated });
+      });
+    };
+
+    if (!hasPerformedInitialScroll) {
+      scrollToBottom(false);
+      setHasPerformedInitialScroll(true);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      scrollToBottom(true);
+    }, 120);
+
+    return () => clearTimeout(timeout);
+  }, [messages, isAIThinking, hasPerformedInitialScroll]);
 
   // Bouncing dots animation
   useEffect(() => {
@@ -609,12 +635,6 @@ export default function ChatScreen({ navigation, route }) {
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
-        onLayout={() =>
-          flatListRef.current?.scrollToEnd({ animated: false })
-        }
         ListFooterComponent={renderTypingIndicator}
       />
 
