@@ -16,6 +16,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Timestamp } from 'firebase/firestore';
 import { Colors } from '../../constants/colors';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -61,6 +62,7 @@ export default function ChatScreen({ navigation, route }) {
   const categories = ['App', 'Product', 'Service', 'Software'];
   const analyzeButtonLabel = 'Analyze & generate';
   const maxQuestions = 4; // AI will ask 3-4 qualifying questions
+  const WELCOME_BACK_COOLDOWN_MS = 1000 * 60 * 10; // 10 minutes
 
   // Load idea context if this is a continuation
   useEffect(() => {
@@ -83,11 +85,14 @@ export default function ChatScreen({ navigation, route }) {
             // Load ALL chat history (intake + continuation)
             const chatHistory = await getChatHistory(ideaId);
 
-            // Convert all messages to UI format
+            const lastOpened = ideaData.lastChatOpenedAt?.toMillis ? ideaData.lastChatOpenedAt.toMillis() : null;
+            const now = Date.now();
+            const shouldShowWelcomeBack = !lastOpened || now - lastOpened > WELCOME_BACK_COOLDOWN_MS;
+
+            // Convert all messages to UI format with persisted metadata
             const allHistoryMessages = chatHistory.map((msg, index) => ({
-              id: `msg-${index}-${msg.timestamp}`,
-              role: msg.role,
-              content: msg.content,
+              ...msg,
+              id: msg.id || `msg-${index}-${msg.timestamp}`,
             }));
 
             // Add "Welcome back!" as the latest message at the end
@@ -97,7 +102,12 @@ export default function ChatScreen({ navigation, route }) {
               content: `Welcome back! Let's continue exploring your idea. What would you like to discuss?`,
             };
 
-            setMessages([...allHistoryMessages, welcomeBackMessage]);
+            setMessages(shouldShowWelcomeBack ? [...allHistoryMessages, welcomeBackMessage] : allHistoryMessages);
+
+            // Track latest visit time to throttle welcome-back messaging
+            updateIdea(ideaId, { lastChatOpenedAt: Timestamp.now() }).catch((error) =>
+              console.error('Error updating last chat open time:', error)
+            );
 
             // Update navigation header to show business name
             if (businessName) {
