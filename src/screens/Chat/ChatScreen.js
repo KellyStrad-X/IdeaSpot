@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Image,
   Animated,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Timestamp } from 'firebase/firestore';
@@ -59,6 +60,13 @@ export default function ChatScreen({ navigation, route }) {
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
   const dot3Anim = useRef(new Animated.Value(0)).current;
+  const prevMessageCount = useRef(0);
+
+  const scrollToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
 
   const categories = ['App', 'Product', 'Service', 'Software'];
   const analyzeButtonLabel = 'Analyze & generate';
@@ -198,30 +206,43 @@ export default function ChatScreen({ navigation, route }) {
 
   useEffect(() => {
     setHasPerformedInitialScroll(false);
+    prevMessageCount.current = 0;
   }, [currentIdeaId]);
 
-  // Auto-scroll when messages change or AI is thinking
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const showListener = Keyboard.addListener(showEvent, () => {
+      scrollToBottom(true);
+    });
+
+    return () => {
+      showListener.remove();
+    };
+  }, [scrollToBottom]);
+
+  // Auto-scroll when message count changes
   useEffect(() => {
     if (!messages.length) return;
-
-    const scrollToBottom = (animated) => {
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToEnd({ animated });
-      });
-    };
 
     if (!hasPerformedInitialScroll) {
       scrollToBottom(false);
       setHasPerformedInitialScroll(true);
+      prevMessageCount.current = messages.length;
       return;
     }
 
-    const timeout = setTimeout(() => {
+    if (messages.length > prevMessageCount.current) {
       scrollToBottom(true);
-    }, 120);
+    }
 
-    return () => clearTimeout(timeout);
-  }, [messages, isAIThinking, hasPerformedInitialScroll]);
+    prevMessageCount.current = messages.length;
+  }, [messages.length, hasPerformedInitialScroll, scrollToBottom]);
+
+  useEffect(() => {
+    if (isAIThinking) {
+      scrollToBottom(true);
+    }
+  }, [isAIThinking, scrollToBottom]);
 
   // Bouncing dots animation
   useEffect(() => {
@@ -635,6 +656,7 @@ export default function ChatScreen({ navigation, route }) {
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messagesList}
+        keyboardShouldPersistTaps="handled"
         ListFooterComponent={renderTypingIndicator}
       />
 
@@ -734,7 +756,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   messagesList: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 140,
   },
   messageContainer: {
     marginBottom: 16,
