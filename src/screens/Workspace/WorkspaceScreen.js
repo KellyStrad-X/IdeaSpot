@@ -853,45 +853,35 @@ export default function WorkspaceScreen({ navigation, route }) {
         <View style={styles.cardContent}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Problem</Text>
-            <View style={styles.highlightBox}>
-              <Text style={styles.sectionText}>{idea.cards.summary.problem}</Text>
-            </View>
+            <Text style={styles.sectionText}>{idea.cards.summary.problem}</Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Target Audience</Text>
-            <View style={styles.highlightBox}>
-              <Text style={styles.sectionText}>{idea.cards.summary.audience}</Text>
-            </View>
+            <Text style={styles.sectionText}>{idea.cards.summary.audience}</Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Core Features</Text>
-            <View style={styles.highlightBox}>
-              {idea.cards.summary.features.map((feature, index) => (
-                <Text key={index} style={styles.bulletText}>
-                  • {feature}
-                </Text>
-              ))}
-            </View>
+            {idea.cards.summary.features.map((feature, index) => (
+              <Text key={index} style={styles.bulletText}>
+                • {feature}
+              </Text>
+            ))}
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Value Proposition</Text>
-            <View style={styles.highlightBox}>
-              <Text style={styles.sectionText}>{idea.cards.summary.valueProp}</Text>
-            </View>
+            <Text style={styles.sectionText}>{idea.cards.summary.valueProp}</Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reality Check</Text>
-            <View style={styles.highlightBox}>
-              {idea.cards.summary.realityCheck.map((check, index) => (
-                <Text key={index} style={styles.bulletText}>
-                  • {check}
-                </Text>
-              ))}
-            </View>
+            {idea.cards.summary.realityCheck.map((check, index) => (
+              <Text key={index} style={styles.bulletText}>
+                • {check}
+              </Text>
+            ))}
           </View>
         </View>
       )}
@@ -1072,13 +1062,11 @@ export default function WorkspaceScreen({ navigation, route }) {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Getting Started</Text>
               {mvpGuidance.map((item, index) => (
-                <View key={index} style={styles.highlightBox}>
-                  <View style={styles.guidanceItem}>
-                    <View style={styles.guidanceNumber}>
-                      <Text style={styles.guidanceNumberText}>{index + 1}</Text>
-                    </View>
-                    <Text style={styles.guidanceText}>{item}</Text>
+                <View key={index} style={styles.guidanceItem}>
+                  <View style={styles.guidanceNumber}>
+                    <Text style={styles.guidanceNumberText}>{index + 1}</Text>
                   </View>
+                  <Text style={styles.guidanceText}>{item}</Text>
                 </View>
               ))}
             </View>
@@ -1972,7 +1960,8 @@ const styles = StyleSheet.create({
   },
   guidanceItem: {
     flexDirection: 'row',
-    paddingLeft: 0,
+    marginBottom: 16,
+    paddingLeft: 8,
   },
   guidanceNumber: {
     width: 28,
@@ -2468,6 +2457,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   alternativeModel: {
+    marginBottom: 12,
   },
   altModelName: {
     color: Colors.accent2,
