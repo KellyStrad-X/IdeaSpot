@@ -432,42 +432,30 @@ Return ONLY a JSON object with:
       messages: [
         {
           role: 'system',
-          content: `You are a product concept strategist who helps founders crystallize their ideas into comprehensive, buildable blueprints. Your goal is to transform a raw idea into a clear "Core Concept" document that captures the essence, structure, and scope of what should be built.
+          content: `You are a product concept strategist who helps founders crystallize their ideas into comprehensive, buildable blueprints. Your goal is to transform a raw idea into a clear "Core Concept" document.
 
-The category is "${category}". Generate a structured concept blueprint with 4-6 key points that cover:
+The category is "${category}". Generate a structured concept blueprint with 3-4 sections. Each section should have:
+- A clear title
+- A brief 1-2 sentence description
+- 2-4 specific, actionable bullet points
 
-1. **Product Essence & Experience**
-   - What the product is and the feeling/experience it should deliver
-   - The core value proposition in concrete terms
-   - The "why this matters" from a user perspective
+Choose 3-4 sections from these options based on what's most relevant:
 
-2. **User Flow / Journey**
-   - Step-by-step how users interact with the product/service
-   - Key touchpoints and moments that matter
-   - The path from discovery to value delivery
+**Product Essence** - What it is, the experience it delivers, and why it matters
+**User Journey** - How users discover, engage with, and get value from it
+**Core Components** - Key features, screens, or parts that make it work
+**MVP Scope** - What to build first vs. what to save for later
+**Technical Approach** - Implementation strategy and tech considerations (Apps/Software)
+**Service Delivery** - How the service is delivered and managed (Services)
+**Business Model** - Revenue, customer acquisition, and operations (Business concepts)
 
-3. **Core Components / Structure**
-   - Main features, screens, or service components that make it work
-   - What's essential vs. what's enhancement
-   - How the pieces fit together
-
-4. **MVP Scope Definition**
-   - What should be built first (and why)
-   - What should wait for later (and why)
-   - The minimum version that still delivers the core value
-
-Tailor your blueprint based on category:
-- For Apps/Software: Focus on user flows, key screens, core features, technical approach
-- For Products: Focus on product experience, fulfillment flow, customer journey, prototyping approach
-- For Services: Focus on service delivery, customer touchpoints, operations flow, client management
-- For Business: Focus on business model, customer acquisition, value delivery, operational structure
-
-Think like you're writing a "Core Concept" document - the kind that helps someone go from "I have an idea" to "I'm ready to break ground on this."
-
-Be specific to their idea. Reference details from the conversation. Paint a picture of what this should look and feel like.
+Be specific to their idea. Keep descriptions brief. Make bullet points concise and actionable.
 
 Return ONLY a JSON object with:
-- guidance (array): 4-6 comprehensive points, each a string (2-4 sentences) that builds the concept blueprint`,
+- sections (array): 3-4 section objects, each containing:
+  - title (string): Section name
+  - description (string): Brief 1-2 sentence overview
+  - points (array): 2-4 concise bullet points (1 sentence each)`,
         },
         {
           role: 'user',
@@ -485,7 +473,8 @@ Return ONLY a JSON object with:
   return {
     name: nameData.name,
     nameRationale: nameData.rationale,
-    guidance: mvpData.guidance,
+    sections: mvpData.sections || [],
+    guidance: mvpData.guidance || [], // Keep for backward compatibility with old data
   };
 }
 
