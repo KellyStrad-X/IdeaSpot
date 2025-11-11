@@ -1050,7 +1050,7 @@ export default function WorkspaceScreen({ navigation, route }) {
         style={styles.cardHeader}
         onPress={() => toggleCard('mvp')}
       >
-        <Text style={styles.cardTitle}>MVP Roadmap</Text>
+        <Text style={styles.cardTitle}>MVP</Text>
         <Text style={styles.expandIcon}>
           {expandedCard === 'mvp' ? '−' : '+'}
         </Text>
@@ -1062,12 +1062,9 @@ export default function WorkspaceScreen({ navigation, route }) {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Getting Started</Text>
               {mvpGuidance.map((item, index) => (
-                <View key={index} style={styles.guidanceItem}>
-                  <View style={styles.guidanceNumber}>
-                    <Text style={styles.guidanceNumberText}>{index + 1}</Text>
-                  </View>
-                  <Text style={styles.guidanceText}>{item}</Text>
-                </View>
+                <Text key={index} style={styles.bulletText}>
+                  • {item}
+                </Text>
               ))}
             </View>
           ) : (
