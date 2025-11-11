@@ -55,11 +55,13 @@ export default function ChatScreen({ navigation, route }) {
   const [editBusinessNameModalVisible, setEditBusinessNameModalVisible] = useState(false);
   const [editBusinessNameValue, setEditBusinessNameValue] = useState('');
   const [hasPerformedInitialScroll, setHasPerformedInitialScroll] = useState(false);
+  const [hasShownAnalyzeButton, setHasShownAnalyzeButton] = useState(false);
   const flatListRef = useRef(null);
   const inputRef = useRef(null);
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
   const dot3Anim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
@@ -264,13 +266,36 @@ export default function ChatScreen({ navigation, route }) {
     }
   }, [isAIThinking]);
 
+  // Pulse animation for analyze button
+  useEffect(() => {
+    if (hasShownAnalyzeButton && !isContinuation) {
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseAnimation.start();
+
+      return () => {
+        pulseAnimation.stop();
+        pulseAnim.setValue(1);
+      };
+    }
+  }, [hasShownAnalyzeButton, isContinuation]);
+
   const handleSend = async () => {
     if (inputText.trim() === '' || isAIThinking) return;
 
     const userMessageContent = inputText.trim();
-    const hasAnalyzePrompt = messages.some((msg) => msg.showAnalyzeButton);
-    const shouldTriggerAnalyzePrompt =
-      !isContinuation && !hasAnalyzePrompt && questionCount >= maxQuestions - 1;
 
     // Add user message to UI immediately
     const userMessage = {
@@ -306,21 +331,6 @@ export default function ChatScreen({ navigation, route }) {
         setCurrentIdeaId(tempIdeaId);
       }
 
-      if (shouldTriggerAnalyzePrompt) {
-        const readyMessage = {
-          id: `ready-${Date.now()}`,
-          role: 'assistant',
-          content: `Great! I think I have enough context now. Tap "${analyzeButtonLabel}" when you want me to analyze your idea.`,
-          showAnalyzeButton: true,
-        };
-
-        setMessages((prev) => [...prev, readyMessage]);
-        await addChatMessage(tempIdeaId, 'assistant', readyMessage.content, false, {
-          showAnalyzeButton: true,
-        });
-        return;
-      }
-
       // Get chat history (excluding the initial greeting)
       const chatHistory = messages.slice(1).map(msg => ({
         role: msg.role,
@@ -338,7 +348,25 @@ export default function ChatScreen({ navigation, route }) {
 
       // Increment question count (only in initial intake mode)
       if (!isContinuation) {
-        setQuestionCount((prev) => prev + 1);
+        const newQuestionCount = questionCount + 1;
+        setQuestionCount(newQuestionCount);
+
+        // Show analyze button in header after 4 AI responses
+        if (newQuestionCount >= maxQuestions && !hasShownAnalyzeButton) {
+          setHasShownAnalyzeButton(true);
+          navigation.setOptions({
+            headerRight: () => (
+              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                <TouchableOpacity
+                  onPress={handleAnalyzeFromHeader}
+                  style={styles.headerAnalyzeButton}
+                >
+                  <Text style={styles.headerAnalyzeButtonText}>{analyzeButtonLabel}</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            ),
+          });
+        }
       }
 
     } catch (error) {
@@ -349,6 +377,88 @@ export default function ChatScreen({ navigation, route }) {
       setMessages((prev) => prev.filter(msg => msg.id !== userMessage.id));
     } finally {
       setIsAIThinking(false);
+    }
+  };
+
+  const handleAnalyzeFromHeader = async () => {
+    if (saving) return; // Prevent double-tap
+
+    setSaving(true);
+
+    try {
+      // AI responds "Getting started!"
+      const gettingStartedMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Getting started! ✨',
+      };
+      setMessages((prev) => [...prev, gettingStartedMessage]);
+
+      // Wait a moment for the message to appear
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Build full conversation transcript for AI analysis
+      const conversationTranscript = messages
+        .filter((msg) => msg.id !== '1') // Exclude initial greeting
+        .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n\n');
+
+      // Try to detect category from conversation
+      const conversationText = conversationTranscript.toLowerCase();
+      let detectedCategory = selectedCategory || '';
+
+      if (!detectedCategory) {
+        // Simple keyword-based detection
+        if (conversationText.includes('app') || conversationText.includes('mobile') || conversationText.includes('web app')) {
+          detectedCategory = 'App';
+        } else if (conversationText.includes('product') || conversationText.includes('physical') || conversationText.includes('device')) {
+          detectedCategory = 'Product';
+        } else if (conversationText.includes('service') || conversationText.includes('consulting') || conversationText.includes('coaching')) {
+          detectedCategory = 'Service';
+        } else if (conversationText.includes('software') || conversationText.includes('platform') || conversationText.includes('saas')) {
+          detectedCategory = 'Software';
+        } else {
+          detectedCategory = 'General';
+        }
+      }
+
+      // Update the idea with analyzing flag (use existing ideaId from conversation)
+      const title = generateIdeaTitle(firstUserMessage);
+
+      if (currentIdeaId) {
+        // Update existing idea
+        await updateIdea(currentIdeaId, {
+          title,
+          tags: [detectedCategory],
+          analyzing: true,
+          analysisReviewed: false,
+        });
+
+        // Save the "Getting started!" message
+        await addChatMessage(currentIdeaId, 'assistant', 'Getting started! ✨');
+
+        // Navigate to dashboard
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'DashboardHome' }],
+        });
+
+        // Generate AI cards with full conversation context
+        generateIdeaCards(
+          currentIdeaId,
+          firstUserMessage,
+          conversationTranscript,
+          detectedCategory
+        ).catch((error) => {
+          console.error('Error generating cards:', error);
+        });
+      }
+    } catch (error) {
+      console.error('Error processing idea:', error);
+      const errorMessage = error.message || 'Failed to process idea. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -551,25 +661,6 @@ export default function ChatScreen({ navigation, route }) {
               {item.content}
             </Text>
           </View>
-
-          {/* Show analyze button inline with AI message if flagged */}
-          {item.showAnalyzeButton && (
-            <View style={styles.inlineButtonContainer}>
-              {saving ? (
-                <View style={styles.savingContainer}>
-                  <ActivityIndicator size="small" color={Colors.accent1} />
-                  <Text style={styles.savingText}>Preparing analysis...</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.quickReplyChip}
-                  onPress={() => handleQuickReply(analyzeButtonLabel)}
-                >
-                  <Text style={styles.quickReplyText}>{analyzeButtonLabel}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
         </View>
       </View>
     );
@@ -965,6 +1056,18 @@ const styles = StyleSheet.create({
   modalSaveText: {
     color: Colors.textPrimary,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  headerAnalyzeButton: {
+    backgroundColor: Colors.accent1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 16,
+  },
+  headerAnalyzeButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

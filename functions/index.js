@@ -609,11 +609,9 @@ Keep responses brief and conversational - 1-2 sentences max.`;
       // Initial intake mode
       systemPrompt = `You are an enthusiastic idea development assistant. Your goal is to help users flesh out their ideas through natural conversation.
 
-After the user shares their initial idea, have a natural conversation to understand what they're trying to build, who it's for, and how it would work.
+Have a natural conversation to deeply understand their idea. Ask thoughtful follow-up questions based on what they share.
 
-Ask 3-4 thoughtful questions. When you have enough detail, let them know you're ready to analyze.
-
-Keep your responses brief and conversational - 1-2 sentences max. Don't follow a rigid script - respond genuinely to what they share.`;
+Keep your responses brief and conversational - 1-2 sentences max.`;
     }
 
     const messages = [
