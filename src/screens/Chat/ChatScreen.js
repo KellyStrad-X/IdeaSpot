@@ -70,7 +70,7 @@ export default function ChatScreen({ navigation, route }) {
   }, []);
 
   const categories = ['App', 'Product', 'Service', 'Software'];
-  const analyzeButtonLabel = 'Analyze & generate';
+  const analyzeButtonLabel = 'Analyze';
   const maxQuestions = 4; // AI will ask 3-4 qualifying questions
   const WELCOME_BACK_COOLDOWN_MS = 1000 * 60 * 10; // 10 minutes
 
@@ -188,7 +188,13 @@ export default function ChatScreen({ navigation, route }) {
             id: msg.id || `history-${index}-${msg.timestamp}`,
           }));
 
-          const allMessages = [greeting, ...historyMessages];
+          // Preserve any local messages (pending save) that aren't in Firestore yet
+          const localMessages = prevMessages.slice(1).filter(prevMsg =>
+            !prevMsg.timestamp &&
+            !historyMessages.some(histMsg => histMsg.content === prevMsg.content && histMsg.role === prevMsg.role)
+          );
+
+          const allMessages = [greeting, ...historyMessages, ...localMessages];
           const uniqueMessages = allMessages.filter((msg, index, self) =>
             index === 0 ||
             self.findIndex(m => m.content === msg.content && m.role === msg.role) === index
@@ -272,13 +278,13 @@ export default function ChatScreen({ navigation, route }) {
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.08,
-            duration: 1000,
+            toValue: 1.03,
+            duration: 1200,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 1200,
             useNativeDriver: true,
           }),
         ])
@@ -1060,14 +1066,22 @@ const styles = StyleSheet.create({
   },
   headerAnalyzeButton: {
     backgroundColor: Colors.accent1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.accent4,
+    shadowColor: Colors.accent1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerAnalyzeButtonText: {
     color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });
