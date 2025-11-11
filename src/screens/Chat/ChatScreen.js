@@ -59,6 +59,7 @@ export default function ChatScreen({ navigation, route }) {
   const dot3Anim = useRef(new Animated.Value(0)).current;
 
   const categories = ['App', 'Product', 'Service', 'Software'];
+  const analyzeButtonLabel = 'Analyze & generate';
   const maxQuestions = 4; // AI will ask 3-4 qualifying questions
 
   // Load idea context if this is a continuation
@@ -137,9 +138,8 @@ export default function ChatScreen({ navigation, route }) {
           const isWelcomeBack = welcomeBackMsg?.content?.includes('Welcome back');
 
           const historyMessages = chatMessages.map((msg, index) => ({
-            id: `msg-${index}-${msg.timestamp}`,
-            role: msg.role,
-            content: msg.content,
+            ...msg,
+            id: msg.id || `msg-${index}-${msg.timestamp}`,
           }));
 
           // If we have a welcome back message, add it at the end
@@ -159,9 +159,8 @@ export default function ChatScreen({ navigation, route }) {
           const greeting = prevMessages[0];
 
           const historyMessages = chatMessages.map((msg, index) => ({
-            id: `history-${index}-${msg.timestamp}`,
-            role: msg.role,
-            content: msg.content,
+            ...msg,
+            id: msg.id || `history-${index}-${msg.timestamp}`,
           }));
 
           const allMessages = [greeting, ...historyMessages];
@@ -232,6 +231,9 @@ export default function ChatScreen({ navigation, route }) {
     if (inputText.trim() === '' || isAIThinking) return;
 
     const userMessageContent = inputText.trim();
+    const hasAnalyzePrompt = messages.some((msg) => msg.showAnalyzeButton);
+    const shouldTriggerAnalyzePrompt =
+      !isContinuation && !hasAnalyzePrompt && questionCount >= maxQuestions - 1;
 
     // Add user message to UI immediately
     const userMessage = {
@@ -270,6 +272,21 @@ export default function ChatScreen({ navigation, route }) {
       // Save user message to Firestore (mark as continuation if applicable)
       await addChatMessage(tempIdeaId, 'user', userMessageContent, isContinuation);
 
+      if (shouldTriggerAnalyzePrompt) {
+        const readyMessage = {
+          id: `ready-${Date.now()}`,
+          role: 'assistant',
+          content: `Great! I think I have enough context now. Tap "${analyzeButtonLabel}" when you want me to analyze your idea.`,
+          showAnalyzeButton: true,
+        };
+
+        setMessages((prev) => [...prev, readyMessage]);
+        await addChatMessage(tempIdeaId, 'assistant', readyMessage.content, false, {
+          showAnalyzeButton: true,
+        });
+        return;
+      }
+
       // Get chat history (excluding the initial greeting)
       const chatHistory = messages.slice(1).map(msg => ({
         role: msg.role,
@@ -290,22 +307,7 @@ export default function ChatScreen({ navigation, route }) {
 
       // Increment question count (only in initial intake mode)
       if (!isContinuation) {
-        const newQuestionCount = questionCount + 1;
-        setQuestionCount(newQuestionCount);
-
-        // After enough questions, AI sends final message with analyze button
-        if (newQuestionCount >= maxQuestions - 1) {
-          // Add AI's "ready to analyze" message with inline button
-          const readyMessage = {
-            id: `ready-${Date.now()}`,
-            role: 'assistant',
-            content: "Great! I think I have enough context now. Ready for me to analyze your idea?",
-            showAnalyzeButton: true,
-          };
-
-          setMessages((prev) => [...prev, readyMessage]);
-          await addChatMessage(tempIdeaId, 'assistant', readyMessage.content, false);
-        }
+        setQuestionCount((prev) => prev + 1);
       }
 
     } catch (error) {
@@ -402,7 +404,7 @@ export default function ChatScreen({ navigation, route }) {
   };
 
   const handleQuickReply = async (reply) => {
-    if (reply !== 'Summarize & analyze') return;
+    if (reply !== analyzeButtonLabel) return;
 
     setShowQuickReplies(false);
     setSaving(true);
@@ -530,9 +532,9 @@ export default function ChatScreen({ navigation, route }) {
               ) : (
                 <TouchableOpacity
                   style={styles.quickReplyChip}
-                  onPress={() => handleQuickReply('Summarize & analyze')}
+                  onPress={() => handleQuickReply(analyzeButtonLabel)}
                 >
-                  <Text style={styles.quickReplyText}>Summarize & analyze</Text>
+                  <Text style={styles.quickReplyText}>{analyzeButtonLabel}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -638,7 +640,6 @@ export default function ChatScreen({ navigation, route }) {
           onChangeText={setInputText}
           multiline
           maxLength={500}
-          editable={!isAIThinking}
           blurOnSubmit={false}
         />
         <TouchableOpacity

@@ -193,14 +193,21 @@ export const deleteIdea = async (ideaId) => {
  * @param {boolean} isContinuation - Whether this is a continuation chat message
  * @returns {Promise<string>} - Message document ID
  */
-export const addChatMessage = async (ideaId, role, content, isContinuation = false) => {
+export const addChatMessage = async (
+  ideaId,
+  role,
+  content,
+  isContinuation = false,
+  extraFields = {}
+) => {
   try {
     const chatRef = collection(db, 'ideas', ideaId, 'chatHistory');
     const message = {
       role,
       content,
       timestamp: Timestamp.now(),
-      isContinuation
+      isContinuation,
+      ...extraFields
     };
     const docRef = await addDoc(chatRef, message);
     return docRef.id;
