@@ -60,11 +60,10 @@ export default function ChatScreen({ navigation, route }) {
   const dot1Anim = useRef(new Animated.Value(0)).current;
   const dot2Anim = useRef(new Animated.Value(0)).current;
   const dot3Anim = useRef(new Animated.Value(0)).current;
-  const prevMessageCount = useRef(0);
 
-  const scrollToBottom = useCallback((animated = true) => {
+  const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
-      flatListRef.current?.scrollToEnd({ animated });
+      flatListRef.current?.scrollToEnd({ animated: false });
     });
   }, []);
 
@@ -206,41 +205,22 @@ export default function ChatScreen({ navigation, route }) {
 
   useEffect(() => {
     setHasPerformedInitialScroll(false);
-    prevMessageCount.current = 0;
   }, [currentIdeaId]);
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const showListener = Keyboard.addListener(showEvent, () => {
-      scrollToBottom(true);
-    });
 
-    return () => {
-      showListener.remove();
-    };
-  }, [scrollToBottom]);
-
-  // Auto-scroll when message count changes
+  // Initial scroll to bottom when messages first load
   useEffect(() => {
     if (!messages.length) return;
 
     if (!hasPerformedInitialScroll) {
-      scrollToBottom(false);
+      scrollToBottom();
       setHasPerformedInitialScroll(true);
-      prevMessageCount.current = messages.length;
-      return;
     }
-
-    if (messages.length > prevMessageCount.current) {
-      scrollToBottom(true);
-    }
-
-    prevMessageCount.current = messages.length;
   }, [messages.length, hasPerformedInitialScroll, scrollToBottom]);
 
   useEffect(() => {
     if (isAIThinking) {
-      scrollToBottom(true);
+      scrollToBottom();
     }
   }, [isAIThinking, scrollToBottom]);
 
@@ -658,6 +638,7 @@ export default function ChatScreen({ navigation, route }) {
         contentContainerStyle={styles.messagesList}
         keyboardShouldPersistTaps="handled"
         ListFooterComponent={renderTypingIndicator}
+        onContentSizeChange={scrollToBottom}
       />
 
       {/* Category Selection */}
@@ -758,7 +739,7 @@ const styles = StyleSheet.create({
   messagesList: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 140,
+    paddingBottom: 20,
   },
   messageContainer: {
     marginBottom: 16,

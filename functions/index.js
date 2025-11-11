@@ -394,12 +394,12 @@ Return ONLY a JSON object with:
 }
 
 /**
- * Generate MVP Card (Business Name + MVP Guidance)
+ * Generate Core Concept Card (Business Name + Core Concept Blueprint)
  */
 async function generateMVPCard(conversationContext, category) {
   const openai = getOpenAI();
 
-  // Generate business name and MVP guidance in parallel
+  // Generate business name and Core Concept blueprint in parallel
   const [nameResponse, mvpResponse] = await Promise.all([
     openai.chat.completions.create({
       model: 'gpt-4o',
@@ -432,19 +432,42 @@ Return ONLY a JSON object with:
       messages: [
         {
           role: 'system',
-          content: `You are an MVP strategist who helps founders build their minimum viable product. Based on the conversation, provide tactical, category-specific guidance.
+          content: `You are a product concept strategist who helps founders crystallize their ideas into comprehensive, buildable blueprints. Your goal is to transform a raw idea into a clear "Core Concept" document that captures the essence, structure, and scope of what should be built.
 
-The category is "${category}". Tailor your advice accordingly:
+The category is "${category}". Generate a structured concept blueprint with 4-6 key points that cover:
 
-- For Apps/Software: recommend tech stacks, core MVP features to include, features to avoid (feature creep), development approach
-- For Products: focus on LLC/business formation, supplier sourcing, fulfillment setup, prototyping steps
-- For Services: cover business structure, operations setup, client management systems, service delivery process
-- For general business: provide formation, legal, operational, and go-to-market essentials
+1. **Product Essence & Experience**
+   - What the product is and the feeling/experience it should deliver
+   - The core value proposition in concrete terms
+   - The "why this matters" from a user perspective
 
-Be practical and actionable. Give specific recommendations drawn from the conversation details. Include 4-6 key items they need to get started.
+2. **User Flow / Journey**
+   - Step-by-step how users interact with the product/service
+   - Key touchpoints and moments that matter
+   - The path from discovery to value delivery
+
+3. **Core Components / Structure**
+   - Main features, screens, or service components that make it work
+   - What's essential vs. what's enhancement
+   - How the pieces fit together
+
+4. **MVP Scope Definition**
+   - What should be built first (and why)
+   - What should wait for later (and why)
+   - The minimum version that still delivers the core value
+
+Tailor your blueprint based on category:
+- For Apps/Software: Focus on user flows, key screens, core features, technical approach
+- For Products: Focus on product experience, fulfillment flow, customer journey, prototyping approach
+- For Services: Focus on service delivery, customer touchpoints, operations flow, client management
+- For Business: Focus on business model, customer acquisition, value delivery, operational structure
+
+Think like you're writing a "Core Concept" document - the kind that helps someone go from "I have an idea" to "I'm ready to break ground on this."
+
+Be specific to their idea. Reference details from the conversation. Paint a picture of what this should look and feel like.
 
 Return ONLY a JSON object with:
-- guidance (array): 4-6 tactical action items, each a string describing what to do and why`,
+- guidance (array): 4-6 comprehensive points, each a string (2-4 sentences) that builds the concept blueprint`,
         },
         {
           role: 'user',
