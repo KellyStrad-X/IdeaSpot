@@ -853,35 +853,45 @@ export default function WorkspaceScreen({ navigation, route }) {
         <View style={styles.cardContent}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Problem</Text>
-            <Text style={styles.sectionText}>{idea.cards.summary.problem}</Text>
+            <View style={styles.highlightBox}>
+              <Text style={styles.sectionText}>{idea.cards.summary.problem}</Text>
+            </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Target Audience</Text>
-            <Text style={styles.sectionText}>{idea.cards.summary.audience}</Text>
+            <View style={styles.highlightBox}>
+              <Text style={styles.sectionText}>{idea.cards.summary.audience}</Text>
+            </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Core Features</Text>
-            {idea.cards.summary.features.map((feature, index) => (
-              <Text key={index} style={styles.bulletText}>
-                • {feature}
-              </Text>
-            ))}
+            <View style={styles.highlightBox}>
+              {idea.cards.summary.features.map((feature, index) => (
+                <Text key={index} style={styles.bulletText}>
+                  • {feature}
+                </Text>
+              ))}
+            </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Value Proposition</Text>
-            <Text style={styles.sectionText}>{idea.cards.summary.valueProp}</Text>
+            <View style={styles.highlightBox}>
+              <Text style={styles.sectionText}>{idea.cards.summary.valueProp}</Text>
+            </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reality Check</Text>
-            {idea.cards.summary.realityCheck.map((check, index) => (
-              <Text key={index} style={styles.bulletText}>
-                • {check}
-              </Text>
-            ))}
+            <View style={styles.highlightBox}>
+              {idea.cards.summary.realityCheck.map((check, index) => (
+                <Text key={index} style={styles.bulletText}>
+                  • {check}
+                </Text>
+              ))}
+            </View>
           </View>
         </View>
       )}
@@ -905,13 +915,15 @@ export default function WorkspaceScreen({ navigation, route }) {
           <Text style={styles.stepsHeader}>Strategic advice to develop your idea:</Text>
           {idea.cards.actionableInsights.insights.map((insight, index) => (
             <View key={index} style={styles.section}>
-              <View style={styles.insightHeader}>
-                <Text style={styles.sectionTitle}>{insight.title}</Text>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText}>{insight.category}</Text>
+              <View style={styles.highlightBox}>
+                <View style={styles.insightHeader}>
+                  <Text style={styles.sectionTitle}>{insight.title}</Text>
+                  <View style={styles.categoryBadge}>
+                    <Text style={styles.categoryText}>{insight.category}</Text>
+                  </View>
                 </View>
+                <Text style={styles.sectionText}>{insight.advice}</Text>
               </View>
-              <Text style={styles.sectionText}>{insight.advice}</Text>
             </View>
           ))}
         </View>
@@ -938,17 +950,19 @@ export default function WorkspaceScreen({ navigation, route }) {
               {idea.cards.userScenarios.scenarios.map((scenario, index) => (
                 <View key={index} style={styles.scenarioItem}>
                   <Text style={styles.personaText}>{scenario.persona}</Text>
-                  <View style={styles.scenarioSection}>
-                    <Text style={styles.scenarioLabel}>Context:</Text>
-                    <Text style={styles.sectionText}>{scenario.context}</Text>
-                  </View>
-                  <View style={styles.scenarioSection}>
-                    <Text style={styles.scenarioLabel}>Journey:</Text>
-                    <Text style={styles.sectionText}>{scenario.journey}</Text>
-                  </View>
-                  <View style={styles.scenarioSection}>
-                    <Text style={styles.scenarioLabel}>Outcome:</Text>
-                    <Text style={styles.outcomeText}>{scenario.outcome}</Text>
+                  <View style={styles.highlightBox}>
+                    <View style={styles.scenarioSection}>
+                      <Text style={styles.scenarioLabel}>Context:</Text>
+                      <Text style={styles.sectionText}>{scenario.context}</Text>
+                    </View>
+                    <View style={styles.scenarioSection}>
+                      <Text style={styles.scenarioLabel}>Journey:</Text>
+                      <Text style={styles.sectionText}>{scenario.journey}</Text>
+                    </View>
+                    <View style={styles.scenarioSection}>
+                      <Text style={styles.scenarioLabel}>Outcome:</Text>
+                      <Text style={styles.outcomeText}>{scenario.outcome}</Text>
+                    </View>
                   </View>
                   {index < idea.cards.userScenarios.scenarios.length - 1 && (
                     <View style={styles.divider} />
@@ -984,8 +998,10 @@ export default function WorkspaceScreen({ navigation, route }) {
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Primary Revenue Model</Text>
-                <Text style={styles.monetizationModel}>{idea.cards.monetization.primaryModel}</Text>
-                <Text style={styles.sectionText}>{idea.cards.monetization.modelRationale}</Text>
+                <View style={styles.highlightBox}>
+                  <Text style={styles.monetizationModel}>{idea.cards.monetization.primaryModel}</Text>
+                  <Text style={styles.sectionText}>{idea.cards.monetization.modelRationale}</Text>
+                </View>
               </View>
 
               <View style={styles.section}>
@@ -1009,7 +1025,7 @@ export default function WorkspaceScreen({ navigation, route }) {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Alternative Approaches</Text>
                   {idea.cards.monetization.alternativeModels.map((alt, index) => (
-                    <View key={index} style={styles.alternativeModel}>
+                    <View key={index} style={styles.highlightBox}>
                       <Text style={styles.altModelName}>{alt.name}</Text>
                       <Text style={styles.sectionText}>{alt.description}</Text>
                     </View>
@@ -1020,9 +1036,11 @@ export default function WorkspaceScreen({ navigation, route }) {
               {idea.cards.monetization.projections && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Revenue Projections</Text>
-                  <Text style={styles.projectionText}>100 users: {idea.cards.monetization.projections.users100}</Text>
-                  <Text style={styles.projectionText}>500 users: {idea.cards.monetization.projections.users500}</Text>
-                  <Text style={styles.projectionText}>1000 users: {idea.cards.monetization.projections.users1000}</Text>
+                  <View style={styles.highlightBox}>
+                    <Text style={styles.projectionText}>100 users: {idea.cards.monetization.projections.users100}</Text>
+                    <Text style={styles.projectionText}>500 users: {idea.cards.monetization.projections.users500}</Text>
+                    <Text style={styles.projectionText}>1000 users: {idea.cards.monetization.projections.users1000}</Text>
+                  </View>
                 </View>
               )}
             </>
@@ -1054,11 +1072,13 @@ export default function WorkspaceScreen({ navigation, route }) {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Getting Started</Text>
               {mvpGuidance.map((item, index) => (
-                <View key={index} style={styles.guidanceItem}>
-                  <View style={styles.guidanceNumber}>
-                    <Text style={styles.guidanceNumberText}>{index + 1}</Text>
+                <View key={index} style={styles.highlightBox}>
+                  <View style={styles.guidanceItem}>
+                    <View style={styles.guidanceNumber}>
+                      <Text style={styles.guidanceNumberText}>{index + 1}</Text>
+                    </View>
+                    <Text style={styles.guidanceText}>{item}</Text>
                   </View>
-                  <Text style={styles.guidanceText}>{item}</Text>
                 </View>
               ))}
             </View>
@@ -1819,6 +1839,14 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 16,
   },
+  highlightBox: {
+    backgroundColor: Colors.background,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   sectionTitle: {
     color: Colors.textPrimary,
     fontSize: 16,
@@ -1944,8 +1972,7 @@ const styles = StyleSheet.create({
   },
   guidanceItem: {
     flexDirection: 'row',
-    marginBottom: 16,
-    paddingLeft: 8,
+    paddingLeft: 0,
   },
   guidanceNumber: {
     width: 28,
@@ -2441,7 +2468,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   alternativeModel: {
-    marginBottom: 12,
   },
   altModelName: {
     color: Colors.accent2,
